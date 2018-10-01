@@ -1500,6 +1500,7 @@
 		},
 		{
 			"ImportPath": "github.com/docker/libnetwork/ipvs",
+			"Comment": "v0.8.0-dev.2-1265-ga9cd636e",
 			"Rev": "a9cd636e37898226332c439363e2ed0ea185ae92"
 		},
 		{
@@ -1541,7 +1542,7 @@
 		},
 		{
 			"ImportPath": "github.com/evanphx/json-patch",
-			"Comment": "v3.0.0-34-g36442db",
+			"Comment": "v4.0.0-3-g36442db",
 			"Rev": "36442dbdb585210f8d5a1b45e67aa323c197d5c4"
 		},
 		{
@@ -3260,6 +3261,31 @@
 			"ImportPath": "github.com/xiang90/probing",
 			"Comment": "0.0.1",
 			"Rev": "07dd2e8dfe18522e9c447ba95f2fe95262f63bb2"
+		},
+		{
+			"ImportPath": "go.opencensus.io",
+			"Comment": "v0.17.0-12-gd5b2c12",
+			"Rev": "d5b2c1264a6e63d82d7b9527b34c0b36206627cb"
+		},
+		{
+			"ImportPath": "go.opencensus.io/internal",
+			"Comment": "v0.17.0-12-gd5b2c12",
+			"Rev": "d5b2c1264a6e63d82d7b9527b34c0b36206627cb"
+		},
+		{
+			"ImportPath": "go.opencensus.io/trace",
+			"Comment": "v0.17.0-12-gd5b2c12",
+			"Rev": "d5b2c1264a6e63d82d7b9527b34c0b36206627cb"
+		},
+		{
+			"ImportPath": "go.opencensus.io/trace/internal",
+			"Comment": "v0.17.0-12-gd5b2c12",
+			"Rev": "d5b2c1264a6e63d82d7b9527b34c0b36206627cb"
+		},
+		{
+			"ImportPath": "go.opencensus.io/trace/tracestate",
+			"Comment": "v0.17.0-12-gd5b2c12",
+			"Rev": "d5b2c1264a6e63d82d7b9527b34c0b36206627cb"
 		},
 		{
 			"ImportPath": "golang.org/x/crypto/bcrypt",

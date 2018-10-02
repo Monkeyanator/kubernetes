@@ -37,6 +37,7 @@ filegroup(
     srcs = [
         ":package-srcs",
         "//vendor/go.opencensus.io/trace/internal:all-srcs",
+        "//vendor/go.opencensus.io/trace/propagation:all-srcs",
         "//vendor/go.opencensus.io/trace/tracestate:all-srcs",
     ],
     tags = ["automanaged"],

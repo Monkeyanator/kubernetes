@@ -31,10 +31,11 @@ import (
 	"sync/atomic"
 	"time"
 
+	"contrib.go.opencensus.io/exporter/stackdriver"
 	"github.com/golang/glog"
-
 	cadvisorapi "github.com/google/cadvisor/info/v1"
 	cadvisorapiv2 "github.com/google/cadvisor/info/v2"
+	"go.opencensus.io/trace"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -1469,8 +1470,33 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
 	podStatus := o.podStatus
 	updateType := o.updateType
 
+	//Get the hostname for traces
+	activeHost := string(kl.nodeName)
+
+	// Create and register an OpenCensus
+	// Stackdriver Trace exporter.
+	exporter, err := stackdriver.NewExporter(stackdriver.Options{
+		ProjectID: "samnaser-gke-dev-217421",
+	})
+	if err != nil {
+		return fmt.Errorf("error configuring stackdriver opencensus exporter: %v", err)
+	}
+
+	// Register our exporter with our tracer and set a liberal sampling policy for testing
+	trace.RegisterExporter(exporter)
+	trace.ApplyConfig(trace.Config{DefaultSampler: trace.ProbabilitySampler(0.15)})
+
+	// Parent span, annotate it with the hostname
+	ctx := context.Background()
+	ctx, span := trace.StartSpan(ctx, "Kubelet: SyncPod")
+	span.AddAttributes(trace.StringAttribute("host", activeHost))
+	defer span.End()
+
 	// if we want to kill a pod, do it now!
 	if updateType == kubetypes.SyncPodKill {
+
+		_, podKillSpan := trace.StartSpan(ctx, "Pod kill logic")
+
 		killPodOptions := o.killPodOptions
 		if killPodOptions == nil || killPodOptions.PodStatusFunc == nil {
 			return fmt.Errorf("kill pod options are required if update type is kill")
@@ -1484,8 +1510,13 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
 			utilruntime.HandleError(err)
 			return err
 		}
+
+		podKillSpan.End()
+
 		return nil
 	}
+
+	ctx, podAPIStatusSpan := trace.StartSpan(ctx, "Pod API status logic")
 
 	// Latency measurements for the main workflow are relative to the
 	// first time the pod was seen by the API server.
@@ -1508,6 +1539,7 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
 
 	// Generate final API pod status with pod and status manager status
 	apiPodStatus := kl.generateAPIPodStatus(pod, podStatus)
+
 	// The pod IP may be changed in generateAPIPodStatus if the pod is using host network. (See #24576)
 	// TODO(random-liu): After writing pod spec into container labels, check whether pod is using host network, and
 	// set pod IP to hostIP directly in runtime.GetPodStatus
@@ -1520,8 +1552,14 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
 		metrics.PodStartLatency.Observe(metrics.SinceInMicroseconds(firstSeenTime))
 	}
 
+	podAPIStatusSpan.End()
+	ctx, podAdmitSpan := trace.StartSpan(ctx, "Pod admission logic")
+
 	runnable := kl.canRunPod(pod)
 	if !runnable.Admit {
+
+		podAdmitSpan.Annotate([]trace.Attribute{}, "Pod deemed unrunnable")
+
 		// Pod is not runnable; update the Pod and Container statuses to why.
 		apiPodStatus.Reason = runnable.Reason
 		apiPodStatus.Message = runnable.Message
@@ -1544,6 +1582,7 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
 
 	// Kill pod if it should not be running
 	if !runnable.Admit || pod.DeletionTimestamp != nil || apiPodStatus.Phase == v1.PodFailed {
+		podAdmitSpan.Annotate([]trace.Attribute{}, "Killing pod")
 		var syncErr error
 		if err := kl.killPod(pod, nil, podStatus, nil); err != nil {
 			kl.recorder.Eventf(pod, v1.EventTypeWarning, events.FailedToKillPod, "error killing pod: %v", err)
@@ -1559,11 +1598,16 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
 		return syncErr
 	}
 
+	podAdmitSpan.End()
+
+	ctx, networkConditionSpan := trace.StartSpan(ctx, "Network condition check")
 	// If the network plugin is not ready, only start the pod if it uses the host network
 	if rs := kl.runtimeState.networkErrors(); len(rs) != 0 && !kubecontainer.IsHostNetworkPod(pod) {
+		networkConditionSpan.Annotate([]trace.Attribute{}, "Network errors detected, cannot proceed")
 		kl.recorder.Eventf(pod, v1.EventTypeWarning, events.NetworkNotReady, "%s: %v", NetworkNotReadyErrorMsg, rs)
 		return fmt.Errorf("%s: %v", NetworkNotReadyErrorMsg, rs)
 	}
+	networkConditionSpan.End()
 
 	// Create Cgroups for the pod and apply resource parameters
 	// to them if cgroups-per-qos flag is enabled.
@@ -1571,6 +1615,9 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
 	// If pod has already been terminated then we need not create
 	// or update the pod's cgroup
 	if !kl.podIsTerminated(pod) {
+
+		_, cgroupSpan := trace.StartSpan(ctx, "CGROUP initialization logic")
+
 		// When the kubelet is restarted with the cgroups-per-qos
 		// flag enabled, all the pod's running containers
 		// should be killed intermittently and brought back up
@@ -1609,6 +1656,7 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
 				}
 			}
 		}
+		cgroupSpan.End()
 	}
 
 	// Create Mirror Pod for Static Pod if it doesn't already exist
@@ -1640,25 +1688,36 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
 		}
 	}
 
+	ctx, dataDirSpan := trace.StartSpan(ctx, "Data creation logic")
+
 	// Make data directories for the pod
 	if err := kl.makePodDataDirs(pod); err != nil {
 		kl.recorder.Eventf(pod, v1.EventTypeWarning, events.FailedToMakePodDataDirectories, "error making pod data directories: %v", err)
 		glog.Errorf("Unable to make pod data directories for pod %q: %v", format.Pod(pod), err)
 		return err
 	}
+	dataDirSpan.End()
 
 	// Volume manager will not mount volumes for terminated pods
 	if !kl.podIsTerminated(pod) {
+		_, volumeMountSpan := trace.StartSpan(ctx, "Volume mounting logic")
 		// Wait for volumes to attach/mount
 		if err := kl.volumeManager.WaitForAttachAndMount(pod); err != nil {
 			kl.recorder.Eventf(pod, v1.EventTypeWarning, events.FailedMountVolume, "Unable to mount volumes for pod %q: %v", format.Pod(pod), err)
 			glog.Errorf("Unable to mount volumes for pod %q: %v; skipping pod", format.Pod(pod), err)
 			return err
 		}
+
+		volumeMountSpan.End()
 	}
+
+	ctx, pullSecretSpan := trace.StartSpan(ctx, "Secret pulling logic")
 
 	// Fetch the pull secrets for the pod
 	pullSecrets := kl.getPullSecretsForPod(pod)
+	pullSecretSpan.End()
+
+	_, containerRuntimeSpan := trace.StartSpan(ctx, "Container runtime logic")
 
 	// Call the container runtime's SyncPod callback
 	result := kl.containerRuntime.SyncPod(pod, apiPodStatus, podStatus, pullSecrets, kl.backOff)
@@ -1675,6 +1734,8 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
 
 		return nil
 	}
+
+	containerRuntimeSpan.End()
 
 	return nil
 }

@@ -17,18 +17,14 @@ limitations under the License.
 package kuberuntime
 
 import (
-	"context"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"os"
 	"time"
 
-	"contrib.go.opencensus.io/exporter/stackdriver"
 	"github.com/golang/glog"
 	cadvisorapi "github.com/google/cadvisor/info/v1"
 	"go.opencensus.io/trace"
-	"go.opencensus.io/trace/propagation"
 
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -53,6 +49,7 @@ import (
 	"k8s.io/kubernetes/pkg/kubelet/types"
 	"k8s.io/kubernetes/pkg/kubelet/util/cache"
 	"k8s.io/kubernetes/pkg/kubelet/util/format"
+	"k8s.io/kubernetes/pkg/util/trace"
 )
 
 const (
@@ -590,29 +587,18 @@ func (m *kubeGenericRuntimeManager) SyncPod(pod *v1.Pod, _ v1.PodStatus, podStat
 
 	// Create an register a OpenCensus
 	// Stackdriver Trace exporter.
-	exporter, err := stackdriver.NewExporter(stackdriver.Options{
-		ProjectID: "samnaser-gke-dev-217421",
-	})
+	exporter, err := traceutil.DefaultExporter()
 	if err != nil {
-		log.Errorf("could not register Stackdriver exporter in Kubelet")
+		log.Errorf("could not register default exporter in Kubelet")
 	}
 
 	trace.RegisterExporter(exporter)
-	trace.ApplyConfig(trace.Config{DefaultSampler: trace.NeverSample()})
+	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 
-	if pod.TraceContext != "" {
-		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
-	}
-
-	// Extract trace context
-	decodedContextBytes, err := base64.StdEncoding.DecodeString(pod.TraceContext)
+	ctx, remoteSpan, err := traceutil.SpanFromPodEncodedContext(pod, "Kubelet: synchronizing pod")
 	if err != nil {
-		glog.V(3).Infoln("Trace could not be decoded")
+		trace.ApplyConfig(trace.Config{DefaultSampler: trace.NeverSample()})
 	}
-
-	// Create new span with this old context
-	remoteContext, _ := propagation.FromBinary(decodedContextBytes)
-	ctx, remoteSpan := trace.StartSpanWithRemoteParent(context.Background(), "Kubelet: pod synchronization", remoteContext)
 
 	remoteSpan.AddAttributes(trace.StringAttribute("inheritedTraceContext", pod.TraceContext))
 	remoteSpan.AddAttributes(trace.StringAttribute("podId", pod.GetName()))

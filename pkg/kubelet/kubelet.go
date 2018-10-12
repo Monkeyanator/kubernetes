@@ -1469,8 +1469,6 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
 	podStatus := o.podStatus
 	updateType := o.updateType
 
-	glog.V(3).Infoln("Kubelet current trace context: " + pod.TraceContext)
-
 	// if we want to kill a pod, do it now!
 	if updateType == kubetypes.SyncPodKill {
 		killPodOptions := o.killPodOptions

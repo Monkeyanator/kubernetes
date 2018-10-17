@@ -13,26 +13,39 @@ import (
 	"k8s.io/kubernetes/pkg/apis/core"
 )
 
+// SpanContextFromPodEncodedContext takes a pod to extract a SpanContext from and returns the decoded SpanContext
+func SpanContextFromPodEncodedContext(pod *v1.Pod) (spanContext trace.SpanContext, err error) {
+
+	// If there is no context encoded in the pod, error out
+	if pod.TraceContext == "" {
+		return trace.SpanContext{}, errors.New("could not extract trace context from given pod object")
+	}
+
+	decodedContextBytes, err := base64.StdEncoding.DecodeString(pod.TraceContext)
+	if err != nil {
+		return trace.SpanContext{}, err
+	}
+
+	spanContext, ok := propagation.FromBinary(decodedContextBytes)
+	if !ok {
+		return trace.SpanContext{}, errors.New("could not convert raw bytes to trace")
+	}
+
+	return spanContext, nil
+
+}
+
 // SpanFromPodEncodedContext takes a Pod to extract trace context from and the desired Span name and
 // constructs a new Span from this information
 func SpanFromPodEncodedContext(pod *v1.Pod, name string) (ctx context.Context, result *trace.Span, err error) {
 
 	// If there is no context encoded in the pod, error out
-	if pod.TraceContext == "" {
-		return context.Background(), &trace.Span{}, errors.New("could not extract trace context from given pod object")
-	}
-
-	decodedContextBytes, err := base64.StdEncoding.DecodeString(pod.TraceContext)
+	spanFromEncodedContext, err := SpanContextFromPodEncodedContext(pod)
 	if err != nil {
 		return context.Background(), &trace.Span{}, err
 	}
 
-	remoteContext, ok := propagation.FromBinary(decodedContextBytes)
-	if !ok {
-		return context.Background(), &trace.Span{}, errors.New("could not convert raw bytes to trace")
-	}
-
-	newCtx, newSpan := trace.StartSpanWithRemoteParent(context.Background(), name, remoteContext)
+	newCtx, newSpan := trace.StartSpanWithRemoteParent(context.Background(), name, spanFromEncodedContext)
 	return newCtx, newSpan, nil
 }
 

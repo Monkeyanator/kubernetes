@@ -19,7 +19,6 @@ package kubelet
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -33,10 +32,8 @@ import (
 	"strings"
 	"sync"
 
-	"contrib.go.opencensus.io/exporter/stackdriver"
 	"github.com/golang/glog"
 	"go.opencensus.io/trace"
-	"go.opencensus.io/trace/propagation"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -65,6 +62,7 @@ import (
 	kubetypes "k8s.io/kubernetes/pkg/kubelet/types"
 	"k8s.io/kubernetes/pkg/kubelet/util/format"
 	mountutil "k8s.io/kubernetes/pkg/util/mount"
+	"k8s.io/kubernetes/pkg/util/trace"
 	volumeutil "k8s.io/kubernetes/pkg/volume/util"
 	"k8s.io/kubernetes/pkg/volume/util/volumepathhandler"
 	volumevalidation "k8s.io/kubernetes/pkg/volume/validation"
@@ -841,33 +839,18 @@ func (kl *Kubelet) getPullSecretsForPod(pod *v1.Pod) []v1.Secret {
 
 	// Create an register a OpenCensus
 	// Stackdriver Trace exporter.
-	exporter, err := stackdriver.NewExporter(stackdriver.Options{
-		ProjectID: "samnaser-gke-dev-217421",
-	})
+	exporter, err := traceutil.DefaultExporter()
 	if err != nil {
-		log.Errorf("could not register Stackdriver exporter in Kubelet")
+		log.Errorf("could not register default exporter in Scheduler")
 	}
 
-	trace.ApplyConfig(trace.Config{DefaultSampler: trace.NeverSample()})
-	if pod.TraceContext != "" {
-		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
-	}
-
+	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 	trace.RegisterExporter(exporter)
 
-	// Extract trace context
-	decodedContextBytes, err := base64.StdEncoding.DecodeString(pod.TraceContext)
+	_, remoteSpan, err := traceutil.SpanFromPodEncodedContext(pod, "Kubelet: pull secrets")
 	if err != nil {
-		glog.V(3).Infoln("Trace could not be decoded")
+		trace.ApplyConfig(trace.Config{DefaultSampler: trace.NeverSample()})
 	}
-
-	// Create new span with this old context
-	remoteContext, _ := propagation.FromBinary(decodedContextBytes)
-	_, remoteSpan := trace.StartSpanWithRemoteParent(context.Background(), "Kubelet: Pull secrets", remoteContext)
-
-	remoteSpan.AddAttributes(trace.StringAttribute("inheritedTraceContext", pod.TraceContext))
-	remoteSpan.AddAttributes(trace.StringAttribute("podId", pod.GetName()))
-	defer remoteSpan.End()
 
 	pullSecrets := []v1.Secret{}
 
@@ -879,6 +862,12 @@ func (kl *Kubelet) getPullSecretsForPod(pod *v1.Pod) []v1.Secret {
 		}
 
 		pullSecrets = append(pullSecrets, *secret)
+	}
+
+	//TODO find the best way to conditionally export spans
+	remoteSpan.AddAttributes(trace.Int64Attribute("secretsPulled", int64(len(pullSecrets))))
+	if len(pullSecrets) > 0 {
+		remoteSpan.End()
 	}
 
 	return pullSecrets

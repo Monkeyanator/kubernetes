@@ -30,6 +30,7 @@ import (
 	"sync"
 	"time"
 
+	"go.opencensus.io/trace"
 	"google.golang.org/grpc"
 
 	"github.com/armon/circbuf"
@@ -47,6 +48,7 @@ import (
 	"k8s.io/kubernetes/pkg/kubelet/util/format"
 	"k8s.io/kubernetes/pkg/util/selinux"
 	"k8s.io/kubernetes/pkg/util/tail"
+	"k8s.io/kubernetes/pkg/util/trace"
 )
 
 var (
@@ -91,12 +93,29 @@ func (m *kubeGenericRuntimeManager) recordContainerEvent(pod *v1.Pod, container 
 // * start the container
 // * run the post start lifecycle hooks (if applicable)
 func (m *kubeGenericRuntimeManager) startContainer(podSandboxID string, podSandboxConfig *runtimeapi.PodSandboxConfig, container *v1.Container, pod *v1.Pod, podStatus *kubecontainer.PodStatus, pullSecrets []v1.Secret, podIP string, containerType kubecontainer.ContainerType) (string, error) {
+
+	// Create an register a OpenCensus
+	// Stackdriver Trace exporter.
+	exporter, _ := traceutil.DefaultExporter()
+
+	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
+	trace.RegisterExporter(exporter)
+
+	ctx, remoteSpan, err := traceutil.SpanFromPodEncodedContext(pod, "Kuberuntime: initiate start container")
+	if err != nil {
+		trace.ApplyConfig(trace.Config{DefaultSampler: trace.NeverSample()})
+	}
+
+	ctx, imagePullSpan := trace.StartSpan(ctx, "Kuberuntime: pull image")
+
 	// Step 1: pull the image.
 	imageRef, msg, err := m.imagePuller.EnsureImageExists(pod, container, pullSecrets)
 	if err != nil {
 		m.recordContainerEvent(pod, container, "", v1.EventTypeWarning, events.FailedToCreateContainer, "Error: %v", grpc.ErrorDesc(err))
 		return msg, err
 	}
+
+	imagePullSpan.End()
 
 	// Step 2: create the container.
 	ref, err := kubecontainer.GenerateContainerRef(pod, container)
@@ -109,10 +128,11 @@ func (m *kubeGenericRuntimeManager) startContainer(podSandboxID string, podSandb
 	restartCount := 0
 	containerStatus := podStatus.FindContainerStatusByName(container.Name)
 	if containerStatus != nil {
+		remoteSpan.Annotate(nil, "Pod restart")
 		restartCount = containerStatus.RestartCount + 1
 	}
 
-	containerConfig, cleanupAction, err := m.generateContainerConfig(container, pod, restartCount, podIP, imageRef, containerType)
+	containerConfig, cleanupAction, err := m.generateContainerConfig(ctx, container, pod, restartCount, podIP, imageRef, containerType)
 	if cleanupAction != nil {
 		defer cleanupAction()
 	}
@@ -140,12 +160,18 @@ func (m *kubeGenericRuntimeManager) startContainer(podSandboxID string, podSandb
 		}, ref)
 	}
 
+	ctx, startContainerSpan := trace.StartSpan(ctx, "Kuberuntime: start container")
+
 	// Step 3: start the container.
 	err = m.runtimeService.StartContainer(containerID)
 	if err != nil {
 		m.recordContainerEvent(pod, container, containerID, v1.EventTypeWarning, events.FailedToStartContainer, "Error: %v", grpc.ErrorDesc(err))
+		startContainerSpan.Annotate(nil, "Error in container start")
+		startContainerSpan.End()
 		return grpc.ErrorDesc(err), kubecontainer.ErrRunContainer
 	}
+
+	startContainerSpan.End()
 	m.recordContainerEvent(pod, container, containerID, v1.EventTypeNormal, events.StartedContainer, "Started container")
 
 	// Symlink container logs to the legacy container log location for cluster logging
@@ -167,7 +193,7 @@ func (m *kubeGenericRuntimeManager) startContainer(podSandboxID string, podSandb
 		}
 	}
 
-	// Step 4: execute the post start hook.
+	// Step 4: exassumedecute the post start hook.
 	if container.Lifecycle != nil && container.Lifecycle.PostStart != nil {
 		kubeContainerID := kubecontainer.ContainerID{
 			Type: m.runtimeName,
@@ -184,11 +210,16 @@ func (m *kubeGenericRuntimeManager) startContainer(podSandboxID string, podSandb
 		}
 	}
 
+	remoteSpan.End()
+
 	return "", nil
 }
 
 // generateContainerConfig generates container config for kubelet runtime v1.
-func (m *kubeGenericRuntimeManager) generateContainerConfig(container *v1.Container, pod *v1.Pod, restartCount int, podIP, imageRef string, containerType kubecontainer.ContainerType) (*runtimeapi.ContainerConfig, func(), error) {
+func (m *kubeGenericRuntimeManager) generateContainerConfig(ctx context.Context, container *v1.Container, pod *v1.Pod, restartCount int, podIP, imageRef string, containerType kubecontainer.ContainerType) (*runtimeapi.ContainerConfig, func(), error) {
+
+	_, containerConfigSpan := trace.StartSpan(ctx, "Kuberuntime: generate container config")
+
 	opts, cleanupAction, err := m.runtimeHelper.GenerateRunContainerOptions(pod, container, podIP)
 	if err != nil {
 		return nil, nil, err
@@ -236,6 +267,8 @@ func (m *kubeGenericRuntimeManager) generateContainerConfig(container *v1.Contai
 		return nil, cleanupAction, err
 	}
 
+	var envVarAttr []trace.Attribute
+
 	// set environment variables
 	envs := make([]*runtimeapi.KeyValue, len(opts.Envs))
 	for idx := range opts.Envs {
@@ -244,9 +277,13 @@ func (m *kubeGenericRuntimeManager) generateContainerConfig(container *v1.Contai
 			Key:   e.Name,
 			Value: e.Value,
 		}
+		envVarAttr = append(envVarAttr, trace.StringAttribute(e.Name, e.Value))
 	}
+
+	containerConfigSpan.Annotate(envVarAttr, "Environment variables added to container")
 	config.Envs = envs
 
+	containerConfigSpan.End()
 	return config, cleanupAction, nil
 }
 

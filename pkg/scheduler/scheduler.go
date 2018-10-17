@@ -212,9 +212,6 @@ func (sched *Scheduler) schedule(pod *v1.Pod) (string, error) {
 		trace.ApplyConfig(trace.Config{DefaultSampler: trace.NeverSample()})
 	}
 
-	remoteSpan.AddAttributes(trace.StringAttribute("inheritedTraceContext", pod.TraceContext))
-	remoteSpan.AddAttributes(trace.StringAttribute("podId", pod.GetName()))
-
 	defer remoteSpan.End()
 
 	host, err := sched.config.Algorithm.Schedule(pod, sched.config.NodeLister)
@@ -397,15 +394,15 @@ func (sched *Scheduler) bind(assumed *v1.Pod, b *v1.Binding) error {
 	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 	trace.RegisterExporter(exporter)
 
-	_, remoteSpan, er := traceutil.SpanFromPodEncodedContext(assumed, "Scheduler: bind pod to node")
-	if er != nil {
+	_, remoteSpan, err := traceutil.SpanFromPodEncodedContext(assumed, "Scheduler: bind pod to node")
+	if err != nil {
 		trace.ApplyConfig(trace.Config{DefaultSampler: trace.NeverSample()})
 	}
 
 	bindingStart := time.Now()
 	// If binding succeeded then PodScheduled condition will be updated in apiserver so that
 	// it's atomic with setting host.
-	err := sched.config.GetBinder(assumed).Bind(b)
+	err = sched.config.GetBinder(assumed).Bind(b)
 	if err := sched.config.SchedulerCache.FinishBinding(assumed); err != nil {
 		glog.Errorf("scheduler cache FinishBinding failed: %v", err)
 	}

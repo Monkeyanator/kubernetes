@@ -83,7 +83,6 @@ func (podStrategy) PrepareForCreate(ctx context.Context, obj runtime.Object) {
 	}
 
 	trace.RegisterExporter(exporter)
-	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 
 	spanContext := context.Background()
 	_, span := trace.StartSpan(spanContext, "API server: prepare for create")
@@ -91,6 +90,8 @@ func (podStrategy) PrepareForCreate(ctx context.Context, obj runtime.Object) {
 
 	if err := traceutil.EncodeSpanContextIntoPod(pod, span.SpanContext()); err != nil {
 		trace.ApplyConfig(trace.Config{DefaultSampler: trace.NeverSample()})
+	} else {
+		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 	}
 
 	defer span.End()
@@ -102,6 +103,7 @@ func (podStrategy) PrepareForCreate(ctx context.Context, obj runtime.Object) {
 func (podStrategy) PrepareForUpdate(ctx context.Context, obj, old runtime.Object) {
 	newPod := obj.(*api.Pod)
 	oldPod := old.(*api.Pod)
+
 	newPod.Status = oldPod.Status
 
 	podutil.DropDisabledAlphaFields(&newPod.Spec)
@@ -207,6 +209,7 @@ var StatusStrategy = podStatusStrategy{Strategy}
 func (podStatusStrategy) PrepareForUpdate(ctx context.Context, obj, old runtime.Object) {
 	newPod := obj.(*api.Pod)
 	oldPod := old.(*api.Pod)
+
 	newPod.Spec = oldPod.Spec
 	newPod.DeletionTimestamp = nil
 

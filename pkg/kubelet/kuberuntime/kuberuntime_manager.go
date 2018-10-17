@@ -17,6 +17,7 @@ limitations under the License.
 package kuberuntime
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -595,15 +596,10 @@ func (m *kubeGenericRuntimeManager) SyncPod(pod *v1.Pod, _ v1.PodStatus, podStat
 	trace.RegisterExporter(exporter)
 	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 
-	ctx, remoteSpan, err := traceutil.SpanFromPodEncodedContext(pod, "Kubelet: synchronizing pod")
+	remoteSpanContext, err := traceutil.SpanContextFromPodEncodedContext(pod)
 	if err != nil {
 		trace.ApplyConfig(trace.Config{DefaultSampler: trace.NeverSample()})
 	}
-
-	remoteSpan.AddAttributes(trace.StringAttribute("inheritedTraceContext", pod.TraceContext))
-	remoteSpan.AddAttributes(trace.StringAttribute("podId", pod.GetName()))
-
-	ctx, createSandboxSpan := trace.StartSpan(ctx, "Kubelet: creating sandbox")
 
 	// Step 1: Compute sandbox and container changes.
 	podContainerChanges := m.computePodActions(pod, podStatus)
@@ -620,12 +616,8 @@ func (m *kubeGenericRuntimeManager) SyncPod(pod *v1.Pod, _ v1.PodStatus, podStat
 		}
 	}
 
-	createSandboxSpan.End()
-
 	// Step 2: Kill the pod if the sandbox has changed.
 	if podContainerChanges.KillPod {
-
-		_, killPodSpan := trace.StartSpan(ctx, "Kubelet: check for and perform kill condition")
 
 		if !podContainerChanges.CreateSandbox {
 			glog.V(4).Infof("Stopping PodSandbox for %q because all other containers are dead.", format.Pod(pod))
@@ -643,8 +635,6 @@ func (m *kubeGenericRuntimeManager) SyncPod(pod *v1.Pod, _ v1.PodStatus, podStat
 		if podContainerChanges.CreateSandbox {
 			m.purgeInitContainers(pod, podStatus)
 		}
-
-		killPodSpan.End()
 
 	} else {
 		// Step 3: kill any running containers in this pod which are not to keep.
@@ -683,7 +673,7 @@ func (m *kubeGenericRuntimeManager) SyncPod(pod *v1.Pod, _ v1.PodStatus, podStat
 	podSandboxID := podContainerChanges.SandboxID
 	if podContainerChanges.CreateSandbox {
 
-		_, sandboxSpan := trace.StartSpan(ctx, "Kubelet: creating sandbox if needed")
+		_, sandboxSpan := trace.StartSpanWithRemoteParent(context.Background(), "Kubelet: creating sandbox if needed", remoteSpanContext)
 
 		var msg string
 		var err error
@@ -739,8 +729,6 @@ func (m *kubeGenericRuntimeManager) SyncPod(pod *v1.Pod, _ v1.PodStatus, podStat
 		return
 	}
 
-	ctx, initContainerSpan := trace.StartSpan(ctx, "Kubelet: starting init container")
-
 	// Step 5: start the init container.
 	if container := podContainerChanges.NextInitContainerToStart; container != nil {
 		// Start the next init container.
@@ -763,9 +751,6 @@ func (m *kubeGenericRuntimeManager) SyncPod(pod *v1.Pod, _ v1.PodStatus, podStat
 		// Successfully started the container; clear the entry in the failure
 		glog.V(4).Infof("Completed init container %q for pod %q", container.Name, format.Pod(pod))
 	}
-
-	initContainerSpan.End()
-	ctx, startContainersSpan := trace.StartSpan(ctx, "Kubelet: start containers")
 
 	// Step 6: start containers in podContainerChanges.ContainersToStart.
 	for _, idx := range podContainerChanges.ContainersToStart {
@@ -794,9 +779,6 @@ func (m *kubeGenericRuntimeManager) SyncPod(pod *v1.Pod, _ v1.PodStatus, podStat
 			continue
 		}
 	}
-
-	startContainersSpan.End()
-	remoteSpan.End()
 
 	return
 }

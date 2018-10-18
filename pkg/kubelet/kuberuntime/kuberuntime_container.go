@@ -101,7 +101,7 @@ func (m *kubeGenericRuntimeManager) startContainer(podSandboxID string, podSandb
 	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 	trace.RegisterExporter(exporter)
 
-	ctx, remoteSpan, err := traceutil.SpanFromPodEncodedContext(pod, "Kuberuntime: initiate start container")
+	ctx, remoteSpan, err := traceutil.SpanFromPodEncodedContext(pod, "Kuberuntime: container start process")
 	if err != nil {
 		trace.ApplyConfig(trace.Config{DefaultSampler: trace.NeverSample()})
 	}
@@ -280,6 +280,7 @@ func (m *kubeGenericRuntimeManager) generateContainerConfig(ctx context.Context,
 		envVarAttr = append(envVarAttr, trace.StringAttribute(e.Name, e.Value))
 	}
 
+	envVarAttr = append(envVarAttr, trace.Int64Attribute("Environment variable count", int64(len(envVarAttr))))
 	containerConfigSpan.Annotate(envVarAttr, "Environment variables added to container")
 	config.Envs = envs
 

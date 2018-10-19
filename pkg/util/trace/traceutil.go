@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"log"
 
+	"contrib.go.opencensus.io/exporter/ocagent"
 	"contrib.go.opencensus.io/exporter/stackdriver"
 
 	"go.opencensus.io/trace"
@@ -66,13 +68,24 @@ func EncodeSpanContextIntoPod(pod *core.Pod, spanContext trace.SpanContext) erro
 }
 
 // DefaultExporter returns the default trace exporter for the project
-// This is Stackdriver at the moment, but will be the OpenCensus agent
 func DefaultExporter() (exporter trace.Exporter, err error) {
+	// Create an register a OpenCensus
+	// Stackdriver Trace exporter.
+	oce, err := ocagent.NewExporter(ocagent.WithInsecure(), ocagent.WithAddress("35.202.183.139:55678"))
+	if err != nil {
+		log.Fatalf("Failed to create ocagent-exporter: %v", err)
+	}
+
+	return oce, err
+}
+
+// StackdriverExporter returns the default trace exporter for the project
+// This is Stackdriver at the moment, but will be the OpenCensus agent
+func StackdriverExporter() (exporter trace.Exporter, err error) {
 	// Create an register a OpenCensus
 	// Stackdriver Trace exporter.
 	exporter, err = stackdriver.NewExporter(stackdriver.Options{
 		ProjectID: "samnaser-gke-dev-217421",
 	})
-
 	return exporter, err
 }

@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: 2018-10-19T01:00:47Z
+  labels:
+    app: ocagent-trace
+  name: ocagent-lb
+  namespace: default
+  resourceVersion: "25577"
+  selfLink: /api/v1/namespaces/default/services/ocagent-lb
+  uid: 69b9e5a0-d33a-11e8-82c7-42010a800002
+spec:
+  clusterIP: 10.0.175.136
+  loadBalancerIP: 35.202.183.139
+  externalTrafficPolicy: Cluster
+  ports:
+  - nodePort: 32164
+    port: 55678
+    protocol: TCP
+    targetPort: 55678
+  selector:
+    app: ocagent-trace
+  sessionAffinity: None
+  type: LoadBalancer

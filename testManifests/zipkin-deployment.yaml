@@ -1,0 +1,49 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: "1"
+  creationTimestamp: 2018-10-19T20:18:07Z
+  generation: 1
+  labels:
+    run: zipkin
+  name: zipkin
+  namespace: default
+  resourceVersion: "11911"
+  selfLink: /apis/extensions/v1beta1/namespaces/default/deployments/zipkin
+  uid: 176fc432-d3dc-11e8-ac00-42010a800002
+spec:
+  progressDeadlineSeconds: 2147483647
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      run: zipkin
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        run: zipkin
+    spec:
+      containers:
+      - image: openzipkin/zipkin
+        imagePullPolicy: Always
+        name: zipkin
+        ports:
+        - containerPort: 9411
+          name: http
+          protocol: TCP
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      enableServiceLinks: true
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30

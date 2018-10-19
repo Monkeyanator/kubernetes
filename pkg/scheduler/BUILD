@@ -42,6 +42,7 @@ go_library(
     importpath = "k8s.io/kubernetes/pkg/scheduler",
     deps = [
         "//pkg/features:go_default_library",
+        "//pkg/kubelet/kubeletconfig/util/log:go_default_library",
         "//pkg/scheduler/algorithm:go_default_library",
         "//pkg/scheduler/algorithm/predicates:go_default_library",
         "//pkg/scheduler/api:go_default_library",
@@ -51,6 +52,7 @@ go_library(
         "//pkg/scheduler/metrics:go_default_library",
         "//pkg/scheduler/util:go_default_library",
         "//pkg/scheduler/volumebinder:go_default_library",
+        "//pkg/util/trace:go_default_library",
         "//staging/src/k8s.io/api/core/v1:go_default_library",
         "//staging/src/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//staging/src/k8s.io/apimachinery/pkg/util/sets:go_default_library",
@@ -60,6 +62,7 @@ go_library(
         "//staging/src/k8s.io/client-go/listers/core/v1:go_default_library",
         "//staging/src/k8s.io/client-go/tools/record:go_default_library",
         "//vendor/github.com/golang/glog:go_default_library",
+        "//vendor/go.opencensus.io/trace:go_default_library",
     ],
 )
 

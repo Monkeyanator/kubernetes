@@ -50,6 +50,11 @@
 			"Rev": "a899c9b499d6b43555b72ab1cca5000869bc8f63"
 		},
 		{
+			"ImportPath": "contrib.go.opencensus.io/exporter/ocagent",
+			"Comment": "v0.3.0-1-g2b6f854",
+			"Rev": "2b6f8547159b36dffac59d5f3eb6dd610f20d580"
+		},
+		{
 			"ImportPath": "contrib.go.opencensus.io/exporter/stackdriver",
 			"Comment": "v0.6.0-7-g857ff68",
 			"Rev": "857ff689ec3b8d8ebb64827938f1ff602eee59a9"
@@ -472,6 +477,21 @@
 			"ImportPath": "github.com/blang/semver",
 			"Comment": "v3.5.0",
 			"Rev": "b38d23b8782a487059e8fc8773e9a5b228a77cb6"
+		},
+		{
+			"ImportPath": "github.com/census-instrumentation/opencensus-proto/gen-go/agent/common/v1",
+			"Comment": "v0.0.2-21-gbbcfad0",
+			"Rev": "bbcfad0758ee076a159f49b47f814e05cd045fca"
+		},
+		{
+			"ImportPath": "github.com/census-instrumentation/opencensus-proto/gen-go/agent/trace/v1",
+			"Comment": "v0.0.2-21-gbbcfad0",
+			"Rev": "bbcfad0758ee076a159f49b47f814e05cd045fca"
+		},
+		{
+			"ImportPath": "github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1",
+			"Comment": "v0.0.2-21-gbbcfad0",
+			"Rev": "bbcfad0758ee076a159f49b47f814e05cd045fca"
 		},
 		{
 			"ImportPath": "github.com/chai2010/gettext-go/gettext",

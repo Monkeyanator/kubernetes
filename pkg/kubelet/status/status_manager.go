@@ -22,9 +22,8 @@ import (
 	"sync"
 	"time"
 
-	clientset "k8s.io/client-go/kubernetes"
-
 	"github.com/golang/glog"
+	"go.opencensus.io/trace"
 	"k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -32,12 +31,14 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/diff"
 	"k8s.io/apimachinery/pkg/util/wait"
+	clientset "k8s.io/client-go/kubernetes"
 	podutil "k8s.io/kubernetes/pkg/api/v1/pod"
 	kubecontainer "k8s.io/kubernetes/pkg/kubelet/container"
 	kubepod "k8s.io/kubernetes/pkg/kubelet/pod"
 	kubetypes "k8s.io/kubernetes/pkg/kubelet/types"
 	"k8s.io/kubernetes/pkg/kubelet/util/format"
 	statusutil "k8s.io/kubernetes/pkg/util/pod"
+	"k8s.io/kubernetes/pkg/util/trace"
 )
 
 // A wrapper around v1.PodStatus that includes a version to enforce that stale pod statuses are
@@ -502,6 +503,23 @@ func (m *manager) syncPod(uid types.UID, status versionedPodStatus) {
 		return
 	}
 	pod = newPod
+
+	//If transitioned from Pending to Running, then trace it
+	if newPod.Status.Phase == "Running" && oldStatus.Phase == "Pending" {
+		// Create an register a OpenCensus
+		// Stackdriver Trace exporter.
+		exporter, _ := traceutil.DefaultExporter()
+
+		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
+		trace.RegisterExporter(exporter)
+
+		_, podRunningSpan, err := traceutil.SpanFromPodEncodedContext(newPod, "Status manager: pod transitioned from pending to running")
+		if err != nil {
+			trace.ApplyConfig(trace.Config{DefaultSampler: trace.NeverSample()})
+		}
+
+		podRunningSpan.End()
+	}
 
 	glog.V(3).Infof("Status for pod %q updated successfully: (%d, %+v)", format.Pod(pod), status.version, status.status)
 	m.apiStatusVersions[kubetypes.MirrorPodUID(pod.UID)] = status.version

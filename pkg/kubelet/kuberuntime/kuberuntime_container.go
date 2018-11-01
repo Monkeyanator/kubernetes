@@ -163,7 +163,7 @@ func (m *kubeGenericRuntimeManager) startContainer(podSandboxID string, podSandb
 	ctx, startContainerSpan := trace.StartSpan(ctx, "Kuberuntime: start container")
 
 	// Step 3: start the container.
-	err = m.runtimeService.StartContainer(containerID)
+	err = m.runtimeService.StartContainer(containerID, pod)
 	if err != nil {
 		m.recordContainerEvent(pod, container, containerID, v1.EventTypeWarning, events.FailedToStartContainer, "Error: %v", grpc.ErrorDesc(err))
 		startContainerSpan.Annotate(nil, "Error in container start")

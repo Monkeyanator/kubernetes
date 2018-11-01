@@ -7,6 +7,7 @@ import (
 
 	"contrib.go.opencensus.io/exporter/stackdriver"
 
+	"github.com/golang/glog"
 	"go.opencensus.io/trace"
 	"go.opencensus.io/trace/propagation"
 	"k8s.io/api/core/v1"
@@ -16,10 +17,7 @@ import (
 // SpanContextFromPodEncodedContext takes a pod to extract a SpanContext from and returns the decoded SpanContext
 func SpanContextFromPodEncodedContext(pod *v1.Pod) (spanContext trace.SpanContext, err error) {
 
-	// If there is no context encoded in the pod, error out
-	if pod.TraceContext == "" {
-		return trace.SpanContext{}, errors.New("could not extract trace context from given pod object")
-	}
+	glog.Errorf("span-context-from-pod-encoded")
 
 	decodedContextBytes, err := base64.StdEncoding.DecodeString(pod.TraceContext)
 	if err != nil {
@@ -39,6 +37,8 @@ func SpanContextFromPodEncodedContext(pod *v1.Pod) (spanContext trace.SpanContex
 // constructs a new Span from this information
 func SpanFromPodEncodedContext(pod *v1.Pod, name string) (ctx context.Context, result *trace.Span, err error) {
 
+	glog.Errorf("span-from-pod-encoded-context")
+
 	// If there is no context encoded in the pod, error out
 	spanFromEncodedContext, err := SpanContextFromPodEncodedContext(pod)
 	if err != nil {
@@ -53,10 +53,7 @@ func SpanFromPodEncodedContext(pod *v1.Pod, name string) (ctx context.Context, r
 // Base64 encodes the wire format for the SpanContext, and puts it in the pod's TraceContext field
 func EncodeSpanContextIntoPod(pod *core.Pod, spanContext trace.SpanContext) error {
 
-	if string(pod.Name) == "" {
-		pod.TraceContext = ""
-		return errors.New("will not encode span into pod without name")
-	}
+	glog.Errorf("encoding span context into pod")
 
 	rawContextBytes := propagation.Binary(spanContext)
 	encodedContext := base64.StdEncoding.EncodeToString(rawContextBytes)
@@ -68,6 +65,9 @@ func EncodeSpanContextIntoPod(pod *core.Pod, spanContext trace.SpanContext) erro
 // DefaultExporter returns the default trace exporter for the project
 // This is Stackdriver at the moment, but will be the OpenCensus agent
 func DefaultExporter() (exporter trace.Exporter, err error) {
+
+	glog.Errorf("default exporter created")
+
 	// Create an register a OpenCensus
 	// Stackdriver Trace exporter.
 	exporter, err = stackdriver.NewExporter(stackdriver.Options{

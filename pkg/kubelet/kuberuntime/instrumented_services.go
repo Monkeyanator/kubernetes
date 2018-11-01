@@ -19,6 +19,7 @@ package kuberuntime
 import (
 	"time"
 
+	"k8s.io/api/core/v1"
 	internalapi "k8s.io/kubernetes/pkg/kubelet/apis/cri"
 	runtimeapi "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
 	"k8s.io/kubernetes/pkg/kubelet/metrics"
@@ -86,11 +87,11 @@ func (in instrumentedRuntimeService) CreateContainer(podSandboxID string, config
 	return out, err
 }
 
-func (in instrumentedRuntimeService) StartContainer(containerID string) error {
+func (in instrumentedRuntimeService) StartContainer(containerID string, pod *v1.Pod) error {
 	const operation = "start_container"
 	defer recordOperation(operation, time.Now())
 
-	err := in.service.StartContainer(containerID)
+	err := in.service.StartContainer(containerID, pod)
 	recordError(operation, err)
 	return err
 }

@@ -24,11 +24,15 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"go.opencensus.io/plugin/ocgrpc"
+	"go.opencensus.io/trace"
 	"google.golang.org/grpc"
+	"k8s.io/api/core/v1"
 
 	internalapi "k8s.io/kubernetes/pkg/kubelet/apis/cri"
 	runtimeapi "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
 	"k8s.io/kubernetes/pkg/kubelet/util"
+	"k8s.io/kubernetes/pkg/util/trace"
 	utilexec "k8s.io/utils/exec"
 )
 
@@ -48,7 +52,7 @@ func NewRemoteRuntimeService(endpoint string, connectionTimeout time.Duration) (
 	ctx, cancel := context.WithTimeout(context.Background(), connectionTimeout)
 	defer cancel()
 
-	conn, err := grpc.DialContext(ctx, addr, grpc.WithInsecure(), grpc.WithDialer(dailer), grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(maxMsgSize)))
+	conn, err := grpc.DialContext(ctx, addr, grpc.WithStatsHandler(&ocgrpc.ClientHandler{}), grpc.WithInsecure(), grpc.WithDialer(dailer), grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(maxMsgSize)))
 	if err != nil {
 		glog.Errorf("Connect remote runtime %s failed: %v", addr, err)
 		return nil, err
@@ -202,17 +206,39 @@ func (r *RemoteRuntimeService) CreateContainer(podSandBoxID string, config *runt
 }
 
 // StartContainer starts the container.
-func (r *RemoteRuntimeService) StartContainer(containerID string) error {
+func (r *RemoteRuntimeService) StartContainer(containerID string, pod *v1.Pod) error {
+
+	// Create an register a OpenCensus
+	// Stackdriver Trace exporter.
+	exporter, err := traceutil.DefaultExporter()
+	if err != nil {
+		glog.Errorf("could not register default exporter in remote_runtime: " + err.Error())
+	}
+
+	trace.RegisterExporter(exporter)
+	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
+
 	ctx, cancel := getContextWithTimeout(r.timeout)
 	defer cancel()
 
-	_, err := r.runtimeClient.StartContainer(ctx, &runtimeapi.StartContainerRequest{
+	//ctx, span := trace.StartSpan(ctx, "Remote runtime: naive span, hope to pass across process boundaries")
+	ctx, span, err := traceutil.SpanFromPodEncodedContext(pod, "Remote runtime: about to gRPC start container into containerd")
+	span.AddAttributes(trace.StringAttribute("containerID", containerID))
+
+	if err != nil {
+		glog.Errorf("broken span remote_runtime: " + err.Error())
+		trace.ApplyConfig(trace.Config{DefaultSampler: trace.NeverSample()})
+	}
+
+	_, err = r.runtimeClient.StartContainer(ctx, &runtimeapi.StartContainerRequest{
 		ContainerId: containerID,
 	})
 	if err != nil {
 		glog.Errorf("StartContainer %q from runtime service failed: %v", containerID, err)
 		return err
 	}
+
+	span.End()
 
 	return nil
 }

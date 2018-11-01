@@ -19,6 +19,7 @@ package cri
 import (
 	"time"
 
+	"k8s.io/api/core/v1"
 	runtimeapi "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
 )
 
@@ -34,7 +35,7 @@ type ContainerManager interface {
 	// CreateContainer creates a new container in specified PodSandbox.
 	CreateContainer(podSandboxID string, config *runtimeapi.ContainerConfig, sandboxConfig *runtimeapi.PodSandboxConfig) (string, error)
 	// StartContainer starts the container.
-	StartContainer(containerID string) error
+	StartContainer(containerID string, pod *v1.Pod) error
 	// StopContainer stops a running container with a grace period (i.e., timeout).
 	StopContainer(containerID string, timeout int64) error
 	// RemoveContainer removes the container.

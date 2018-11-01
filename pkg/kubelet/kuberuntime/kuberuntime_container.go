@@ -161,6 +161,7 @@ func (m *kubeGenericRuntimeManager) startContainer(podSandboxID string, podSandb
 	}
 
 	ctx, startContainerSpan := trace.StartSpan(ctx, "Kuberuntime: start container")
+	startContainerSpan.AddAttributes(trace.StringAttribute("Container", container.Name))
 
 	// Step 3: start the container.
 	err = m.runtimeService.StartContainer(containerID, pod)

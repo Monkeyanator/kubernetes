@@ -673,7 +673,7 @@ func (m *kubeGenericRuntimeManager) SyncPod(pod *v1.Pod, _ v1.PodStatus, podStat
 	podSandboxID := podContainerChanges.SandboxID
 	if podContainerChanges.CreateSandbox {
 
-		_, sandboxSpan := trace.StartSpanWithRemoteParent(context.Background(), "Kubelet: creating sandbox if needed", remoteSpanContext)
+		_, sandboxSpan := trace.StartSpanWithRemoteParent(context.Background(), "Kubelet.CreatingPodSandbox", remoteSpanContext)
 
 		var msg string
 		var err error

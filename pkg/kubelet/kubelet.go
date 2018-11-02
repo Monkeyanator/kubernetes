@@ -2066,7 +2066,7 @@ func (kl *Kubelet) HandlePodAdditions(pods []*v1.Pod) {
 		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 		trace.RegisterExporter(exporter)
 
-		_, remoteSpan, err := traceutil.SpanFromPodEncodedContext(pod, "Kubelet: handle pod addition")
+		_, remoteSpan, err := traceutil.SpanFromPodEncodedContext(pod, "Kubelet.HandlePodAddition")
 		if err != nil {
 			trace.ApplyConfig(trace.Config{DefaultSampler: trace.NeverSample()})
 		}

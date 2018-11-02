@@ -101,12 +101,12 @@ func (m *kubeGenericRuntimeManager) startContainer(podSandboxID string, podSandb
 	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 	trace.RegisterExporter(exporter)
 
-	ctx, remoteSpan, err := traceutil.SpanFromPodEncodedContext(pod, "Kuberuntime: container start process")
+	ctx, remoteSpan, err := traceutil.SpanFromPodEncodedContext(pod, "Kuberuntime.ContainerStartProcess")
 	if err != nil {
 		trace.ApplyConfig(trace.Config{DefaultSampler: trace.NeverSample()})
 	}
 
-	ctx, imagePullSpan := trace.StartSpan(ctx, "Kuberuntime: pull image")
+	ctx, imagePullSpan := trace.StartSpan(ctx, "Kuberuntime.PullImage")
 
 	// Step 1: pull the image.
 	imageRef, msg, err := m.imagePuller.EnsureImageExists(pod, container, pullSecrets)
@@ -160,7 +160,7 @@ func (m *kubeGenericRuntimeManager) startContainer(podSandboxID string, podSandb
 		}, ref)
 	}
 
-	ctx, startContainerSpan := trace.StartSpan(ctx, "Kuberuntime: start container")
+	ctx, startContainerSpan := trace.StartSpan(ctx, "Kuberuntime.StartContainer")
 	startContainerSpan.AddAttributes(trace.StringAttribute("Container", container.Name))
 
 	// Step 3: start the container.
@@ -219,7 +219,7 @@ func (m *kubeGenericRuntimeManager) startContainer(podSandboxID string, podSandb
 // generateContainerConfig generates container config for kubelet runtime v1.
 func (m *kubeGenericRuntimeManager) generateContainerConfig(ctx context.Context, container *v1.Container, pod *v1.Pod, restartCount int, podIP, imageRef string, containerType kubecontainer.ContainerType) (*runtimeapi.ContainerConfig, func(), error) {
 
-	_, containerConfigSpan := trace.StartSpan(ctx, "Kuberuntime: generate container config")
+	_, containerConfigSpan := trace.StartSpan(ctx, "Kuberuntime.GenerateContainerConfig")
 
 	opts, cleanupAction, err := m.runtimeHelper.GenerateRunContainerOptions(pod, container, podIP)
 	if err != nil {

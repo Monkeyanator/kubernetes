@@ -85,7 +85,7 @@ func (podStrategy) PrepareForCreate(ctx context.Context, obj runtime.Object) {
 	trace.RegisterExporter(exporter)
 
 	spanContext := context.Background()
-	_, span := trace.StartSpan(spanContext, "API server: prepare for create")
+	_, span := trace.StartSpan(spanContext, "API.PrepareForCreate")
 	span.AddAttributes(trace.StringAttribute("pod", string(pod.Name)))
 
 	if err := traceutil.EncodeSpanContextIntoPod(pod, span.SpanContext()); err != nil {

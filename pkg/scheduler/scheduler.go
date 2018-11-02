@@ -207,7 +207,7 @@ func (sched *Scheduler) schedule(pod *v1.Pod) (string, error) {
 	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 	trace.RegisterExporter(exporter)
 
-	_, remoteSpan, err := traceutil.SpanFromPodEncodedContext(pod, "Scheduler: schedule pod")
+	_, remoteSpan, err := traceutil.SpanFromPodEncodedContext(pod, "Scheduler.SchedulePod")
 	if err != nil {
 		trace.ApplyConfig(trace.Config{DefaultSampler: trace.NeverSample()})
 	}
@@ -394,7 +394,7 @@ func (sched *Scheduler) bind(assumed *v1.Pod, b *v1.Binding) error {
 	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 	trace.RegisterExporter(exporter)
 
-	_, remoteSpan, err := traceutil.SpanFromPodEncodedContext(assumed, "Scheduler: bind pod to node")
+	_, remoteSpan, err := traceutil.SpanFromPodEncodedContext(assumed, "Scheduler.BindPodToNode")
 	if err != nil {
 		trace.ApplyConfig(trace.Config{DefaultSampler: trace.NeverSample()})
 	}

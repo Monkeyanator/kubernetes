@@ -513,7 +513,7 @@ func (m *manager) syncPod(uid types.UID, status versionedPodStatus) {
 		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 		trace.RegisterExporter(exporter)
 
-		_, podRunningSpan, err := traceutil.SpanFromPodEncodedContext(newPod, "Status manager: pod transitioned from pending to running")
+		_, podRunningSpan, err := traceutil.SpanFromPodEncodedContext(newPod, "StatusManager.TransitionedFromPendingToRunning")
 		if err != nil {
 			trace.ApplyConfig(trace.Config{DefaultSampler: trace.NeverSample()})
 		}

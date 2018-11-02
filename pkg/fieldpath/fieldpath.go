@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/golang/glog"
+
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
@@ -67,6 +69,9 @@ func ExtractFieldPathAsString(obj interface{}, fieldPath string) (string, error)
 	}
 
 	switch fieldPath {
+	case "metadata.traceContext":
+		glog.Errorf("Here we are!")
+		return accessor.GetTraceContext(), nil
 	case "metadata.annotations":
 		return FormatMap(accessor.GetAnnotations()), nil
 	case "metadata.labels":

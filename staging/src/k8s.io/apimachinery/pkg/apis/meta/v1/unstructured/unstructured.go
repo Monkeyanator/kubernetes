@@ -196,6 +196,10 @@ func (u *Unstructured) SetOwnerReferences(references []metav1.OwnerReference) {
 	u.setNestedField(newReferences, "metadata", "ownerReferences")
 }
 
+func (u *Unstructured) GetTraceContext() string {
+	return getNestedString(u.Object, "metadata", "traceContext")
+}
+
 func (u *Unstructured) GetAPIVersion() string {
 	return getNestedString(u.Object, "apiVersion")
 }

@@ -60,6 +60,7 @@ func addConversionFuncs(scheme *runtime.Scheme) error {
 			switch label {
 			case "metadata.name",
 				"metadata.namespace",
+				"metadata.traceContext",
 				"spec.nodeName",
 				"spec.restartPolicy",
 				"spec.schedulerName",

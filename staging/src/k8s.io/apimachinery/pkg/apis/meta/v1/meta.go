@@ -31,6 +31,7 @@ type ObjectMetaAccessor interface {
 // not support that field (Name, UID, Namespace on lists) will be a no-op and return
 // a default value.
 type Object interface {
+	GetTraceContext() string
 	GetNamespace() string
 	SetNamespace(namespace string)
 	GetName() string
@@ -128,6 +129,7 @@ func (obj *ObjectMeta) GetObjectMeta() Object { return obj }
 
 // Namespace implements metav1.Object for any object with an ObjectMeta typed field. Allows
 // fast, direct access to metadata fields for API objects.
+func (meta *ObjectMeta) GetTraceContext() string             { return meta.TraceContext }
 func (meta *ObjectMeta) GetNamespace() string                { return meta.Namespace }
 func (meta *ObjectMeta) SetNamespace(namespace string)       { meta.Namespace = namespace }
 func (meta *ObjectMeta) GetName() string                     { return meta.Name }

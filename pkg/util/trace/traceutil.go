@@ -16,11 +16,6 @@ import (
 // SpanContextFromPodEncodedContext takes a pod to extract a SpanContext from and returns the decoded SpanContext
 func SpanContextFromPodEncodedContext(pod *v1.Pod) (spanContext trace.SpanContext, err error) {
 
-	// If there is no context encoded in the pod, error out
-	if pod.TraceContext == "" {
-		return trace.SpanContext{}, errors.New("could not extract trace context from given pod object")
-	}
-
 	decodedContextBytes, err := base64.StdEncoding.DecodeString(pod.TraceContext)
 	if err != nil {
 		return trace.SpanContext{}, err
@@ -53,11 +48,6 @@ func SpanFromPodEncodedContext(pod *v1.Pod, name string) (ctx context.Context, r
 // Base64 encodes the wire format for the SpanContext, and puts it in the pod's TraceContext field
 func EncodeSpanContextIntoPod(pod *core.Pod, spanContext trace.SpanContext) error {
 
-	if string(pod.Name) == "" {
-		pod.TraceContext = ""
-		return errors.New("will not encode span into pod without name")
-	}
-
 	rawContextBytes := propagation.Binary(spanContext)
 	encodedContext := base64.StdEncoding.EncodeToString(rawContextBytes)
 	pod.TraceContext = encodedContext
@@ -70,9 +60,7 @@ func EncodeSpanContextIntoPod(pod *core.Pod, spanContext trace.SpanContext) erro
 func DefaultExporter() (exporter trace.Exporter, err error) {
 	// Create an register a OpenCensus
 	// Stackdriver Trace exporter.
-	exporter, err = stackdriver.NewExporter(stackdriver.Options{
-		ProjectID: "samnaser-gke-dev-217421",
-	})
+	exporter, err = stackdriver.NewExporter(stackdriver.Options{})
 
 	return exporter, err
 }

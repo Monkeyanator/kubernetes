@@ -5,7 +5,7 @@ metadata:
 spec:
   containers:
     - name: traced-pod
-      image: localhost:5000/traced-pod:v10
+      image: gcr.io/samnaser-gke-dev-217421/traced-pod:v2
       env:
         - name: KUBERNETES_TRACE_CONTEXT
           valueFrom:

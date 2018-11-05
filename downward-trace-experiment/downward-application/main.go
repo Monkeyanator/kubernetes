@@ -47,7 +47,19 @@ func main() {
 	}
 
 	log.Println("Trace ID: ", spanContext.TraceID)
-	_, span := trace.StartSpanWithRemoteParent(context.Background(), "Deep roots are not reached by the frost", spanContext)
+
+	_, span := trace.StartSpan(context.Background(), "ApplicationLevelTrace")
+
+	link := trace.Link{
+		TraceID: spanContext.TraceID,
+		SpanID:  spanContext.SpanID,
+		Type:    trace.LinkTypeChild,
+	}
+
+	log.Println("Linking to span with TraceID -> SpanID: ", link.TraceID, link.SpanID)
+
+	span.AddLink(link)
+
 	time.Sleep(2 * time.Second)
 	span.End()
 

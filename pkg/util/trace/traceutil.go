@@ -70,9 +70,7 @@ func DefaultExporter() (exporter trace.Exporter, err error) {
 
 	// Create an register a OpenCensus
 	// Stackdriver Trace exporter.
-	exporter, err = stackdriver.NewExporter(stackdriver.Options{
-		ProjectID: "samnaser-gke-dev-217421",
-	})
+	exporter, err = stackdriver.NewExporter(stackdriver.Options{})
 
 	return exporter, err
 }

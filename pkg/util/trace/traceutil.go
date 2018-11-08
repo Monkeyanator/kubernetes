@@ -17,11 +17,8 @@ import (
 // SpanContextFromPodEncodedContext takes a pod to extract a SpanContext from and returns the decoded SpanContext
 func SpanContextFromPodEncodedContext(pod *v1.Pod) (spanContext trace.SpanContext, err error) {
 
-<<<<<<< HEAD
 	glog.Errorf("span-context-from-pod-encoded")
 
-=======
->>>>>>> bdf8e1efda... Remove blank pod name checks from trace utilities, edit release shell script to add certs to all images (for trace purposes)
 	decodedContextBytes, err := base64.StdEncoding.DecodeString(pod.TraceContext)
 	if err != nil {
 		return trace.SpanContext{}, err

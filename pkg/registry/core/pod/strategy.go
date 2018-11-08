@@ -84,11 +84,12 @@ func (podStrategy) PrepareForCreate(ctx context.Context, obj runtime.Object) {
 
 	trace.RegisterExporter(exporter)
 
-	spanContext := context.Background()
-	_, span := trace.StartSpan(spanContext, "API.PrepareForCreate")
-	span.AddAttributes(trace.StringAttribute("pod", string(pod.Name)))
+	// This hack is needed to get total time in these traces
+	ctx, hackSpan := trace.StartSpan(context.Background(), "_hack")
+	_, span := trace.StartSpanWithRemoteParent(context.Background(), "API.PrepareForCreate", hackSpan.SpanContext())
+	span.AddAttributes(trace.StringAttribute("namespace", pod.GetNamespace()))
 
-	if err := traceutil.EncodeSpanContextIntoPod(pod, span.SpanContext()); err != nil {
+	if err := traceutil.EncodeSpanContextIntoPod(pod, hackSpan.SpanContext()); err != nil {
 		trace.ApplyConfig(trace.Config{DefaultSampler: trace.NeverSample()})
 	} else {
 		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})

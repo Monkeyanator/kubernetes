@@ -106,7 +106,7 @@ func (m *kubeGenericRuntimeManager) startContainer(podSandboxID string, podSandb
 		trace.ApplyConfig(trace.Config{DefaultSampler: trace.NeverSample()})
 	}
 
-	ctx, imagePullSpan := trace.StartSpan(ctx, "Kuberuntime.PullImage")
+	ctx, imagePullSpan := trace.StartSpan(ctx, "Kubelet.Kuberuntime.PullImage")
 
 	// Step 1: pull the image.
 	imageRef, msg, err := m.imagePuller.EnsureImageExists(pod, container, pullSecrets)
@@ -141,6 +141,7 @@ func (m *kubeGenericRuntimeManager) startContainer(podSandboxID string, podSandb
 		return grpc.ErrorDesc(err), ErrCreateContainerConfig
 	}
 
+	//HERE WE ARE -- DO THIS CREATE STUFF AFTER //TODOTODO
 	containerID, err := m.runtimeService.CreateContainer(podSandboxID, containerConfig, podSandboxConfig)
 	if err != nil {
 		m.recordContainerEvent(pod, container, containerID, v1.EventTypeWarning, events.FailedToCreateContainer, "Error: %v", grpc.ErrorDesc(err))
@@ -160,7 +161,7 @@ func (m *kubeGenericRuntimeManager) startContainer(podSandboxID string, podSandb
 		}, ref)
 	}
 
-	ctx, startContainerSpan := trace.StartSpan(ctx, "Kuberuntime.StartContainer")
+	ctx, startContainerSpan := trace.StartSpan(ctx, "Kubelet.Kuberuntime.StartContainer")
 	startContainerSpan.AddAttributes(trace.StringAttribute("Container", container.Name))
 
 	// Step 3: start the container.
@@ -219,8 +220,6 @@ func (m *kubeGenericRuntimeManager) startContainer(podSandboxID string, podSandb
 // generateContainerConfig generates container config for kubelet runtime v1.
 func (m *kubeGenericRuntimeManager) generateContainerConfig(ctx context.Context, container *v1.Container, pod *v1.Pod, restartCount int, podIP, imageRef string, containerType kubecontainer.ContainerType) (*runtimeapi.ContainerConfig, func(), error) {
 
-	_, containerConfigSpan := trace.StartSpan(ctx, "Kuberuntime.GenerateContainerConfig")
-
 	opts, cleanupAction, err := m.runtimeHelper.GenerateRunContainerOptions(pod, container, podIP)
 	if err != nil {
 		return nil, nil, err
@@ -268,8 +267,6 @@ func (m *kubeGenericRuntimeManager) generateContainerConfig(ctx context.Context,
 		return nil, cleanupAction, err
 	}
 
-	var envVarAttr []trace.Attribute
-
 	// set environment variables
 	envs := make([]*runtimeapi.KeyValue, len(opts.Envs))
 	for idx := range opts.Envs {
@@ -278,14 +275,10 @@ func (m *kubeGenericRuntimeManager) generateContainerConfig(ctx context.Context,
 			Key:   e.Name,
 			Value: e.Value,
 		}
-		envVarAttr = append(envVarAttr, trace.StringAttribute(e.Name, e.Value))
 	}
 
-	envVarAttr = append(envVarAttr, trace.Int64Attribute("Environment variable count", int64(len(envVarAttr))))
-	containerConfigSpan.Annotate(envVarAttr, "Environment variables added to container")
 	config.Envs = envs
 
-	containerConfigSpan.End()
 	return config, cleanupAction, nil
 }
 

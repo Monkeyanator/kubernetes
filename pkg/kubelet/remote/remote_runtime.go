@@ -221,8 +221,7 @@ func (r *RemoteRuntimeService) StartContainer(containerID string, pod *v1.Pod) e
 	ctx, cancel := getContextWithTimeout(r.timeout)
 	defer cancel()
 
-	//ctx, span := trace.StartSpan(ctx, "Remote runtime: naive span, hope to pass across process boundaries")
-	ctx, span, err := traceutil.SpanFromPodEncodedContext(pod, "RemoteRuntime.StartContainer")
+	ctx, span, err := traceutil.SpanFromPodEncodedContext(pod, "Kubelet.RemoteRuntime.StartContainer")
 	span.AddAttributes(trace.StringAttribute("containerID", containerID))
 
 	if err != nil {

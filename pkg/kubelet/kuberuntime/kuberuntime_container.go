@@ -97,11 +97,9 @@ func (m *kubeGenericRuntimeManager) startContainer(podSandboxID string, podSandb
 	// Create an register a OpenCensus
 	// Stackdriver Trace exporter.
 	exporter, _ := traceutil.DefaultExporter()
-
-	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 	trace.RegisterExporter(exporter)
 
-	ctx, remoteSpan, err := traceutil.SpanFromPodEncodedContext(pod, "Kuberuntime.ContainerStartProcess")
+	ctx, remoteSpan, err := traceutil.SpanFromPodEncodedContext(pod, "Kubelet.Kuberuntime.ContainerStartProcess")
 	if err != nil {
 		trace.ApplyConfig(trace.Config{DefaultSampler: trace.NeverSample()})
 	}

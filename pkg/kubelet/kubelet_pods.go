@@ -844,7 +844,6 @@ func (kl *Kubelet) getPullSecretsForPod(pod *v1.Pod) []v1.Secret {
 		log.Errorf("could not register default exporter in Scheduler")
 	}
 
-	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 	trace.RegisterExporter(exporter)
 
 	_, remoteSpan, err := traceutil.SpanFromPodEncodedContext(pod, "Kubelet: pull secrets")

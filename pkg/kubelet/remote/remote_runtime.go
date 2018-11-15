@@ -214,9 +214,7 @@ func (r *RemoteRuntimeService) StartContainer(containerID string, pod *v1.Pod) e
 	if err != nil {
 		glog.Errorf("could not register default exporter in remote_runtime: " + err.Error())
 	}
-
 	trace.RegisterExporter(exporter)
-	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 
 	ctx, cancel := getContextWithTimeout(r.timeout)
 	defer cancel()

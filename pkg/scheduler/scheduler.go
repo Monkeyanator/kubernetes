@@ -204,7 +204,6 @@ func (sched *Scheduler) schedule(pod *v1.Pod) (string, error) {
 		log.Errorf("could not register default exporter in Scheduler")
 	}
 
-	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 	trace.RegisterExporter(exporter)
 
 	_, remoteSpan, err := traceutil.SpanFromPodEncodedContext(pod, "Scheduler.SchedulePod")
@@ -391,13 +390,13 @@ func (sched *Scheduler) bind(assumed *v1.Pod, b *v1.Binding) error {
 	// Stackdriver Trace exporter.
 	exporter, _ := traceutil.DefaultExporter()
 
-	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 	trace.RegisterExporter(exporter)
 
 	_, remoteSpan, err := traceutil.SpanFromPodEncodedContext(assumed, "Scheduler.BindPodToNode")
 	if err != nil {
 		trace.ApplyConfig(trace.Config{DefaultSampler: trace.NeverSample()})
 	}
+	remoteSpan.AddAttributes(trace.StringAttribute("pod", assumed.GetName()))
 
 	bindingStart := time.Now()
 	// If binding succeeded then PodScheduled condition will be updated in apiserver so that

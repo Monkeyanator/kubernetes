@@ -510,7 +510,6 @@ func (m *manager) syncPod(uid types.UID, status versionedPodStatus) {
 		// Stackdriver Trace exporter.
 		exporter, _ := traceutil.DefaultExporter()
 
-		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 		trace.RegisterExporter(exporter)
 
 		_, podRunningSpan, err := traceutil.SpanFromPodEncodedContext(newPod, "StatusManager.TransitionedFromPendingToRunning")

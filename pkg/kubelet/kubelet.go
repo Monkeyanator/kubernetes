@@ -2063,7 +2063,6 @@ func (kl *Kubelet) HandlePodAdditions(pods []*v1.Pod) {
 			log.Errorf("could not register default exporter in kubelet")
 		}
 
-		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 		trace.RegisterExporter(exporter)
 
 		_, remoteSpan, err := traceutil.SpanFromPodEncodedContext(pod, "Kubelet.AddPod")

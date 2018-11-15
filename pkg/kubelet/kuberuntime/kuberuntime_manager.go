@@ -594,8 +594,6 @@ func (m *kubeGenericRuntimeManager) SyncPod(pod *v1.Pod, _ v1.PodStatus, podStat
 	}
 
 	trace.RegisterExporter(exporter)
-	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
-
 	remoteSpanContext, err := traceutil.SpanContextFromPodEncodedContext(pod)
 	if err != nil {
 		trace.ApplyConfig(trace.Config{DefaultSampler: trace.NeverSample()})

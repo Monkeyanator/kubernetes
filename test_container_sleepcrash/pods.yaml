@@ -1,8 +1,0 @@
-apiVersion: v1
-kind: Pod
-metadata:
-  name: crash-loop
-spec:
-  containers:
-    - name: crash-loop
-      image: localhost:5000/samnaser-gke-dev-217421/crash-loop:v1

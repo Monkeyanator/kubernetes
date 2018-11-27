@@ -17,6 +17,7 @@ limitations under the License.
 package status
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"sync"
@@ -509,15 +510,34 @@ func (m *manager) syncPod(uid types.UID, status versionedPodStatus) {
 		// Create an register a OpenCensus
 		// Stackdriver Trace exporter.
 		exporter, _ := traceutil.DefaultExporter()
-
 		trace.RegisterExporter(exporter)
 
-		_, podRunningSpan, err := traceutil.SpanFromPodEncodedContext(newPod, "StatusManager.TransitionedFromPendingToRunning")
+		_, podRunningSpan, err := traceutil.SpanFromPodEncodedContext(pod, "StatusManager.TransitionedPendingToRunning")
 		if err != nil {
 			trace.ApplyConfig(trace.Config{DefaultSampler: trace.NeverSample()})
 		}
 
 		podRunningSpan.End()
+	}
+
+	if isEnteringReconciliationPhase(*oldStatus, newPod.Status) {
+		exporter, err := traceutil.DefaultExporter()
+		trace.RegisterExporter(exporter)
+
+		_, hackSpan := trace.StartSpan(context.Background(), "_hack")
+		// _, reconciliationStartSpan := trace.StartSpanWithRemoteParent(context.Background(), "StatusManager.ReconciliationPhaseEntered", hackSpan.SpanContext())
+		// reconciliationStartSpan.End()
+
+		updatedPod, err := statusutil.ReplacePodTraceContext(m.kubeClient, newPod.Namespace, newPod.Name, traceutil.SpanContextToBase64String(hackSpan.SpanContext()), newPod.ObjectMeta)
+		if err != nil {
+			glog.Errorf("failed to update TraceContext on API server with error: %v", err)
+		}
+		// m.podManager.UpdatePod(updatedPod)
+
+		spanContext, _ := traceutil.SpanContextFromBase64String(updatedPod.ObjectMeta.TraceContext)
+		fmt.Printf("New reconciliation phase, new TraceID: %s, new TraceContext: %s", spanContext.TraceID, updatedPod.ObjectMeta.TraceContext)
+	} else if isExitingReconciliationPhase(*oldStatus, newPod.Status) {
+
 	}
 
 	glog.V(3).Infof("Status for pod %q updated successfully: (%d, %+v)", format.Pod(pod), status.version, status.status)
@@ -536,6 +556,38 @@ func (m *manager) syncPod(uid types.UID, status versionedPodStatus) {
 		glog.V(3).Infof("Pod %q fully terminated and removed from etcd", format.Pod(pod))
 		m.deletePodStatus(uid)
 	}
+}
+
+func isEnteringReconciliationPhase(oldPodStatus, newPodStatus v1.PodStatus) bool {
+
+	if areContainersReadyForPodConditionList(oldPodStatus.Conditions) && !areContainersReadyForPodConditionList(newPodStatus.Conditions) {
+		return true
+	}
+
+	return false
+}
+
+func isExitingReconciliationPhase(oldPodStatus, newPodStatus v1.PodStatus) bool {
+	if oldPodStatus.Phase != "Running" || newPodStatus.Phase != "Running" {
+		return false
+	}
+
+	if !areContainersReadyForPodConditionList(oldPodStatus.Conditions) && areContainersReadyForPodConditionList(newPodStatus.Conditions) {
+		return true
+	}
+
+	return false
+}
+
+func areContainersReadyForPodConditionList(conditionList []v1.PodCondition) bool {
+
+	for _, condition := range conditionList {
+		if condition.Type == v1.PodReady {
+			return condition.Status == v1.ConditionFalse
+		}
+	}
+
+	return false
 }
 
 // needsUpdate returns whether the status is stale for the given pod UID.

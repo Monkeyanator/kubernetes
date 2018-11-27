@@ -100,6 +100,9 @@ func NodeRules() []rbacv1.PolicyRule {
 		rbacv1helpers.NewRule("create").Groups(authenticationGroup).Resources("tokenreviews").RuleOrDie(),
 		rbacv1helpers.NewRule("create").Groups(authorizationGroup).Resources("subjectaccessreviews", "localsubjectaccessreviews").RuleOrDie(),
 
+		// Allow patches to pod metadata from node
+		rbacv1helpers.NewRule("patch", "update", "get").Groups(legacyGroup).Resources("pods").RuleOrDie(),
+
 		// Needed to build serviceLister, to populate env vars for services
 		rbacv1helpers.NewRule(Read...).Groups(legacyGroup).Resources("services").RuleOrDie(),
 

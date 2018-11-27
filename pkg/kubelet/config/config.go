@@ -435,6 +435,7 @@ func podsDifferSemantically(existing, ref *v1.Pod) bool {
 		reflect.DeepEqual(existing.Labels, ref.Labels) &&
 		reflect.DeepEqual(existing.DeletionTimestamp, ref.DeletionTimestamp) &&
 		reflect.DeepEqual(existing.DeletionGracePeriodSeconds, ref.DeletionGracePeriodSeconds) &&
+		reflect.DeepEqual(existing.TraceContext, ref.TraceContext) &&
 		isAnnotationMapEqual(existing.Annotations, ref.Annotations) {
 		return false
 	}
@@ -474,6 +475,7 @@ func checkAndUpdatePod(existing, ref *v1.Pod) (needUpdate, needReconcile, needGr
 	existing.DeletionTimestamp = ref.DeletionTimestamp
 	existing.DeletionGracePeriodSeconds = ref.DeletionGracePeriodSeconds
 	existing.Status = ref.Status
+	existing.TraceContext = ref.TraceContext
 	updateAnnotations(existing, ref)
 
 	// 2. this is an graceful delete

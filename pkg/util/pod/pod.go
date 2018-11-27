@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	clientset "k8s.io/client-go/kubernetes"
@@ -59,5 +60,45 @@ func preparePatchBytesforPodStatus(namespace, name string, oldPodStatus, newPodS
 	if err != nil {
 		return nil, fmt.Errorf("failed to CreateTwoWayMergePatch for pod %q/%q: %v", namespace, name, err)
 	}
+	return patchBytes, nil
+}
+
+// ReplacePodTraceContext patches trace context for a given pod
+func ReplacePodTraceContext(c clientset.Interface, namespace, name, newTraceContext string, oldObjectMeta metav1.ObjectMeta) (*v1.Pod, error) {
+
+	newObjectMeta := oldObjectMeta
+	newObjectMeta.TraceContext = newTraceContext
+
+	patchBytes, err := preparePatchBytesForTraceContext(namespace, name, newTraceContext, oldObjectMeta, newObjectMeta)
+	if err != nil {
+		return nil, err
+	}
+
+	updatedPod, err := c.CoreV1().Pods(namespace).Patch(name, types.StrategicMergePatchType, patchBytes)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to patch trace context %q for pod %q/%q with error %v", oldObjectMeta.GetObjectMeta().GetTraceContext(), namespace, name, err)
+	}
+
+	return updatedPod, nil
+}
+
+func preparePatchBytesForTraceContext(namespace, name, newTraceContext string, oldObjectMeta, newObjectMeta metav1.ObjectMeta) ([]byte, error) {
+
+	oldData, err := json.Marshal(v1.Pod{
+		ObjectMeta: oldObjectMeta,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to Marshal oldData for pod %q/%q: %v", namespace, name, err)
+	}
+
+	newData, err := json.Marshal(v1.Pod{
+		ObjectMeta: newObjectMeta,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to Marshal newData for pod %q/%q: %v", namespace, name, err)
+	}
+
+	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(oldData, newData, v1.Pod{})
+
 	return patchBytes, nil
 }

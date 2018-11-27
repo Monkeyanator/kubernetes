@@ -2066,6 +2066,7 @@ func (kl *Kubelet) HandlePodAdditions(pods []*v1.Pod) {
 		trace.RegisterExporter(exporter)
 
 		_, remoteSpan, err := traceutil.SpanFromPodEncodedContext(pod, "Kubelet.AddPod")
+		remoteSpan.AddAttributes(trace.StringAttribute("nodeName", string(kl.nodeName)))
 		if err != nil {
 			trace.ApplyConfig(trace.Config{DefaultSampler: trace.NeverSample()})
 		}

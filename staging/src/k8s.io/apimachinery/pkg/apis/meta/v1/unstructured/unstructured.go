@@ -212,6 +212,10 @@ func (u *Unstructured) SetKind(kind string) {
 	u.setNestedField(kind, "kind")
 }
 
+func (u *Unstructured) GetTraceContext() string {
+	return getNestedString(u.Object, "metadata", "traceContext")
+}
+
 func (u *Unstructured) GetNamespace() string {
 	return getNestedString(u.Object, "metadata", "namespace")
 }

@@ -100,6 +100,7 @@ func (m *kubeGenericRuntimeManager) startContainer(podSandboxID string, podSandb
 	trace.RegisterExporter(exporter)
 
 	ctx, remoteSpan, err := traceutil.SpanFromPodEncodedContext(pod, "Kubelet.Kuberuntime.ContainerStartProcess")
+	remoteSpan.AddAttributes(trace.StringAttribute("pod", pod.Name))
 	if err != nil {
 		trace.ApplyConfig(trace.Config{DefaultSampler: trace.NeverSample()})
 	}

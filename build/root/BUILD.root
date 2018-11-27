@@ -73,6 +73,7 @@ filegroup(
         "//plugin:all-srcs",
         "//staging:all-srcs",
         "//test:all-srcs",
+        "//test_container_sleepcrash:all-srcs",
         "//third_party:all-srcs",
         "//translations:all-srcs",
         "//vendor:all-srcs",

@@ -22,7 +22,7 @@ func SpanContextFromPodEncodedContext(pod *v1.Pod) (spanContext trace.SpanContex
 
 	glog.Errorf("span-context-from-pod-encoded")
 
-	decodedContextBytes, err := base64.StdEncoding.DecodeString(pod.TraceContext)
+	decodedContextBytes, err := base64.StdEncoding.DecodeString(pod.ObjectMeta.TraceContext)
 	if err != nil {
 		return trace.SpanContext{}, err
 	}
@@ -65,14 +65,24 @@ func EncodeSpanContextIntoPod(pod *core.Pod, spanContext trace.SpanContext) erro
 	return nil
 }
 
+// SpanContextToBase64String takes context and encodes it to a string
+func SpanContextToBase64String(spanContext trace.SpanContext) string {
+
+	rawContextBytes := propagation.Binary(spanContext)
+	encodedContext := base64.StdEncoding.EncodeToString(rawContextBytes)
+
+	return encodedContext
+}
+
 // DefaultExporter returns the default trace exporter for the project
 // This is Stackdriver at the moment, but will be the OpenCensus agent
 func DefaultExporter() (exporter trace.Exporter, err error) {
 
 	glog.Errorf("default exporter created")
 
-	// Create an register a OpenCensus
 	// Stackdriver Trace exporter.
+	// exporter, err = stackdriver.NewExporter(stackdriver.Options{})
+
 	// Create the Zipkin exporter.
 	localEndpoint, err := openzipkin.NewEndpoint("kubernetes-component", "192.168.1.5:5454")
 	if err != nil {
@@ -82,4 +92,21 @@ func DefaultExporter() (exporter trace.Exporter, err error) {
 	ze := zipkin.NewExporter(reporter, localEndpoint)
 
 	return ze, err
+}
+
+// SpanContextFromBase64String takes string and returns decoded context from it
+func SpanContextFromBase64String(stringEncodedContext string) (spanContext trace.SpanContext, err error) {
+
+	decodedContextBytes, err := base64.StdEncoding.DecodeString(stringEncodedContext)
+	if err != nil {
+		return trace.SpanContext{}, err
+	}
+
+	spanContext, ok := propagation.FromBinary(decodedContextBytes)
+	if !ok {
+		return trace.SpanContext{}, errors.New("could not convert raw bytes to trace")
+	}
+
+	return spanContext, nil
+
 }

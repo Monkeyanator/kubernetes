@@ -77,12 +77,10 @@ func (podStrategy) PrepareForCreate(ctx context.Context, obj runtime.Object) {
 
 	// Create an register a OpenCensus
 	// Stackdriver Trace exporter.
-	exporter, err := traceutil.DefaultExporter()
+	err := traceutil.InitializeExporter()
 	if err != nil {
 		glog.V(3).Infoln("default exporter could not be configured in API server")
 	}
-
-	trace.RegisterExporter(exporter)
 	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 
 	// This hack is needed to get total time in these traces
@@ -91,12 +89,12 @@ func (podStrategy) PrepareForCreate(ctx context.Context, obj runtime.Object) {
 	span.AddAttributes(trace.StringAttribute("namespace", pod.GetNamespace()))
 
 	if err := traceutil.EncodeSpanContextIntoPod(pod, hackSpan.SpanContext()); err != nil {
-		trace.ApplyConfig(trace.Config{DefaultSampler: trace.NeverSample()})
+		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 	} else {
 		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 	}
 
-	defer span.End()
+	span.End()
 
 	podutil.DropDisabledAlphaFields(&pod.Spec)
 }

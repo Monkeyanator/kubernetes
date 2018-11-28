@@ -4,17 +4,13 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
-	"log"
 
+	"contrib.go.opencensus.io/exporter/stackdriver"
 	"github.com/golang/glog"
-	"go.opencensus.io/exporter/zipkin"
 	"go.opencensus.io/trace"
 	"go.opencensus.io/trace/propagation"
 	"k8s.io/api/core/v1"
 	"k8s.io/kubernetes/pkg/apis/core"
-
-	openzipkin "github.com/openzipkin/zipkin-go"
-	zipkinHTTP "github.com/openzipkin/zipkin-go/reporter/http"
 )
 
 // SpanContextFromPodEncodedContext takes a pod to extract a SpanContext from and returns the decoded SpanContext
@@ -74,24 +70,28 @@ func SpanContextToBase64String(spanContext trace.SpanContext) string {
 	return encodedContext
 }
 
-// DefaultExporter returns the default trace exporter for the project
+// InitializeExporter returns the default trace exporter for the project
 // This is Stackdriver at the moment, but will be the OpenCensus agent
-func DefaultExporter() (exporter trace.Exporter, err error) {
+func InitializeExporter() error {
 
 	glog.Errorf("default exporter created")
 
 	// Stackdriver Trace exporter.
-	// exporter, err = stackdriver.NewExporter(stackdriver.Options{})
+	exporter, err := stackdriver.NewExporter(stackdriver.Options{})
+	if err != nil {
+		return err
+	}
+	trace.RegisterExporter(exporter)
 
 	// Create the Zipkin exporter.
-	localEndpoint, err := openzipkin.NewEndpoint("kubernetes-component", "192.168.1.5:5454")
-	if err != nil {
-		log.Fatalf("Failed to create the local zipkinEndpoint: %v", err)
-	}
-	reporter := zipkinHTTP.NewReporter("http://35.193.38.26:9411/api/v2/spans")
-	ze := zipkin.NewExporter(reporter, localEndpoint)
+	// localEndpoint, err := openzipkin.NewEndpoint("kubernetes-component", "192.168.1.5:5454")
+	// if err != nil {
+	// 	log.Fatalf("Failed to create the local zipkinEndpoint: %v", err)
+	// }
+	// reporter := zipkinHTTP.NewReporter("http://35.193.38.26:9411/api/v2/spans")
+	// ze := zipkin.NewExporter(reporter, localEndpoint)
 
-	return ze, err
+	return nil
 }
 
 // SpanContextFromBase64String takes string and returns decoded context from it

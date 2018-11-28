@@ -27,12 +27,10 @@ import (
 	"go.opencensus.io/plugin/ocgrpc"
 	"go.opencensus.io/trace"
 	"google.golang.org/grpc"
-	"k8s.io/api/core/v1"
 
 	internalapi "k8s.io/kubernetes/pkg/kubelet/apis/cri"
 	runtimeapi "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
 	"k8s.io/kubernetes/pkg/kubelet/util"
-	"k8s.io/kubernetes/pkg/util/trace"
 	utilexec "k8s.io/utils/exec"
 )
 
@@ -206,28 +204,15 @@ func (r *RemoteRuntimeService) CreateContainer(podSandBoxID string, config *runt
 }
 
 // StartContainer starts the container.
-func (r *RemoteRuntimeService) StartContainer(containerID string, pod *v1.Pod) error {
+func (r *RemoteRuntimeService) StartContainer(ctx context.Context, containerID string) error {
 
-	// Create an register a OpenCensus
-	// Stackdriver Trace exporter.
-	exporter, err := traceutil.DefaultExporter()
-	if err != nil {
-		glog.Errorf("could not register default exporter in remote_runtime: " + err.Error())
-	}
-	trace.RegisterExporter(exporter)
-
-	ctx, cancel := getContextWithTimeout(r.timeout)
-	defer cancel()
-
-	ctx, span, err := traceutil.SpanFromPodEncodedContext(pod, "Kubelet.RemoteRuntime.StartContainer")
+	ctx, span := trace.StartSpan(ctx, "Kubelet.RemoteRuntime.StartContainer")
 	span.AddAttributes(trace.StringAttribute("containerID", containerID))
 
-	if err != nil {
-		glog.Errorf("broken span remote_runtime: " + err.Error())
-		trace.ApplyConfig(trace.Config{DefaultSampler: trace.NeverSample()})
-	}
+	_, cancel := getContextWithTimeout(r.timeout)
+	defer cancel()
 
-	_, err = r.runtimeClient.StartContainer(ctx, &runtimeapi.StartContainerRequest{
+	_, err := r.runtimeClient.StartContainer(ctx, &runtimeapi.StartContainerRequest{
 		ContainerId: containerID,
 	})
 	if err != nil {

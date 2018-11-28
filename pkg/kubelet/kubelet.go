@@ -76,7 +76,6 @@ import (
 	"k8s.io/kubernetes/pkg/kubelet/eviction"
 	"k8s.io/kubernetes/pkg/kubelet/images"
 	"k8s.io/kubernetes/pkg/kubelet/kubeletconfig"
-	"k8s.io/kubernetes/pkg/kubelet/kubeletconfig/util/log"
 	"k8s.io/kubernetes/pkg/kubelet/kuberuntime"
 	"k8s.io/kubernetes/pkg/kubelet/lifecycle"
 	"k8s.io/kubernetes/pkg/kubelet/logs"
@@ -2056,20 +2055,10 @@ func (kl *Kubelet) HandlePodAdditions(pods []*v1.Pod) {
 			}
 		}
 
-		// Create an register a OpenCensus
-		// Stackdriver Trace exporter.
-		exporter, err := traceutil.DefaultExporter()
-		if err != nil {
-			log.Errorf("could not register default exporter in kubelet")
-		}
+		traceutil.InitializeExporter()
+		_, remoteSpan, _ := traceutil.SpanFromPodEncodedContext(pod, "Kubelet.AddPod")
 
-		trace.RegisterExporter(exporter)
-
-		_, remoteSpan, err := traceutil.SpanFromPodEncodedContext(pod, "Kubelet.AddPod")
 		remoteSpan.AddAttributes(trace.StringAttribute("nodeName", string(kl.nodeName)))
-		if err != nil {
-			trace.ApplyConfig(trace.Config{DefaultSampler: trace.NeverSample()})
-		}
 
 		mirrorPod, _ := kl.podManager.GetMirrorPodByPod(pod)
 		kl.dispatchWork(pod, kubetypes.SyncPodCreate, mirrorPod, start)

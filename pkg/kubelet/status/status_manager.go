@@ -507,22 +507,12 @@ func (m *manager) syncPod(uid types.UID, status versionedPodStatus) {
 
 	//If transitioned from Pending to Running, then trace it
 	if newPod.Status.Phase == "Running" && oldStatus.Phase == "Pending" {
-		// Create an register a OpenCensus
-		// Stackdriver Trace exporter.
-		exporter, _ := traceutil.DefaultExporter()
-		trace.RegisterExporter(exporter)
 
-		_, podRunningSpan, err := traceutil.SpanFromPodEncodedContext(pod, "StatusManager.TransitionedPendingToRunning")
-		if err != nil {
-			trace.ApplyConfig(trace.Config{DefaultSampler: trace.NeverSample()})
-		}
-
+		_, podRunningSpan, _ := traceutil.SpanFromPodEncodedContext(pod, "StatusManager.TransitionedPendingToRunning")
 		podRunningSpan.End()
 	}
 
 	if isEnteringReconciliationPhase(*oldStatus, newPod.Status) {
-		exporter, err := traceutil.DefaultExporter()
-		trace.RegisterExporter(exporter)
 
 		_, hackSpan := trace.StartSpan(context.Background(), "_hack")
 		// _, reconciliationStartSpan := trace.StartSpanWithRemoteParent(context.Background(), "StatusManager.ReconciliationPhaseEntered", hackSpan.SpanContext())

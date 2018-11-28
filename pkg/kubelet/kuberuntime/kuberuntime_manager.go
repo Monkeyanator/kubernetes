@@ -43,7 +43,6 @@ import (
 	kubecontainer "k8s.io/kubernetes/pkg/kubelet/container"
 	"k8s.io/kubernetes/pkg/kubelet/events"
 	"k8s.io/kubernetes/pkg/kubelet/images"
-	"k8s.io/kubernetes/pkg/kubelet/kubeletconfig/util/log"
 	"k8s.io/kubernetes/pkg/kubelet/lifecycle"
 	proberesults "k8s.io/kubernetes/pkg/kubelet/prober/results"
 	"k8s.io/kubernetes/pkg/kubelet/runtimeclass"
@@ -586,18 +585,7 @@ func (m *kubeGenericRuntimeManager) computePodActions(pod *v1.Pod, podStatus *ku
 //  6. Create normal containers.
 func (m *kubeGenericRuntimeManager) SyncPod(pod *v1.Pod, _ v1.PodStatus, podStatus *kubecontainer.PodStatus, pullSecrets []v1.Secret, backOff *flowcontrol.Backoff) (result kubecontainer.PodSyncResult) {
 
-	// Create an register a OpenCensus
-	// Stackdriver Trace exporter.
-	exporter, err := traceutil.DefaultExporter()
-	if err != nil {
-		log.Errorf("could not register default exporter in Kubelet")
-	}
-
-	trace.RegisterExporter(exporter)
-	remoteSpanContext, err := traceutil.SpanContextFromPodEncodedContext(pod)
-	if err != nil {
-		trace.ApplyConfig(trace.Config{DefaultSampler: trace.NeverSample()})
-	}
+	remoteSpanContext, _ := traceutil.SpanContextFromPodEncodedContext(pod)
 
 	// Step 1: Compute sandbox and container changes.
 	podContainerChanges := m.computePodActions(pod, podStatus)

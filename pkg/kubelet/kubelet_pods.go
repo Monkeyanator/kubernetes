@@ -55,7 +55,6 @@ import (
 	"k8s.io/kubernetes/pkg/kubelet/envvars"
 	"k8s.io/kubernetes/pkg/kubelet/eviction"
 	"k8s.io/kubernetes/pkg/kubelet/images"
-	"k8s.io/kubernetes/pkg/kubelet/kubeletconfig/util/log"
 	"k8s.io/kubernetes/pkg/kubelet/server/portforward"
 	remotecommandserver "k8s.io/kubernetes/pkg/kubelet/server/remotecommand"
 	"k8s.io/kubernetes/pkg/kubelet/status"
@@ -837,20 +836,7 @@ func (kl *Kubelet) makePodDataDirs(pod *v1.Pod) error {
 // secrets.
 func (kl *Kubelet) getPullSecretsForPod(pod *v1.Pod) []v1.Secret {
 
-	// Create an register a OpenCensus
-	// Stackdriver Trace exporter.
-	exporter, err := traceutil.DefaultExporter()
-	if err != nil {
-		log.Errorf("could not register default exporter in Scheduler")
-	}
-
-	trace.RegisterExporter(exporter)
-
-	_, remoteSpan, err := traceutil.SpanFromPodEncodedContext(pod, "Kubelet: pull secrets")
-	if err != nil {
-		trace.ApplyConfig(trace.Config{DefaultSampler: trace.NeverSample()})
-	}
-
+	_, remoteSpan, _ := traceutil.SpanFromPodEncodedContext(pod, "Kubelet: pull secrets")
 	pullSecrets := []v1.Secret{}
 
 	for _, secretRef := range pod.Spec.ImagePullSecrets {

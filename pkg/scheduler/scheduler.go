@@ -17,6 +17,7 @@ limitations under the License.
 package scheduler
 
 import (
+	"context"
 	"time"
 
 	"go.opencensus.io/trace"
@@ -29,7 +30,6 @@ import (
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/kubernetes/pkg/features"
-	"k8s.io/kubernetes/pkg/kubelet/kubeletconfig/util/log"
 	"k8s.io/kubernetes/pkg/scheduler/algorithm"
 	"k8s.io/kubernetes/pkg/scheduler/algorithm/predicates"
 	schedulerapi "k8s.io/kubernetes/pkg/scheduler/api"
@@ -195,23 +195,12 @@ func (sched *Scheduler) Config() *Config {
 }
 
 // schedule implements the scheduling algorithm and returns the suggested host.
-func (sched *Scheduler) schedule(pod *v1.Pod) (string, error) {
+func (sched *Scheduler) schedule(ctx context.Context, pod *v1.Pod) (string, error) {
 
-	// Create an register a OpenCensus
-	// Stackdriver Trace exporter.
-	exporter, err := traceutil.DefaultExporter()
-	if err != nil {
-		log.Errorf("could not register default exporter in Scheduler")
-	}
+	traceutil.InitializeExporter()
+	_, schedulePodAlgorithmSpan := trace.StartSpan(ctx, "Scheduler.SchedulePodAlgorithm")
 
-	trace.RegisterExporter(exporter)
-
-	_, remoteSpan, err := traceutil.SpanFromPodEncodedContext(pod, "Scheduler.SchedulePod")
-	if err != nil {
-		trace.ApplyConfig(trace.Config{DefaultSampler: trace.NeverSample()})
-	}
-
-	defer remoteSpan.End()
+	defer schedulePodAlgorithmSpan.End()
 
 	host, err := sched.config.Algorithm.Schedule(pod, sched.config.NodeLister)
 	if err != nil {
@@ -384,24 +373,15 @@ func (sched *Scheduler) assume(assumed *v1.Pod, host string) error {
 
 // bind binds a pod to a given node defined in a binding object.  We expect this to run asynchronously, so we
 // handle binding metrics internally.
-func (sched *Scheduler) bind(assumed *v1.Pod, b *v1.Binding) error {
+func (sched *Scheduler) bind(ctx context.Context, assumed *v1.Pod, b *v1.Binding) error {
 
-	// Create an register a OpenCensus
-	// Stackdriver Trace exporter.
-	exporter, _ := traceutil.DefaultExporter()
-
-	trace.RegisterExporter(exporter)
-
-	_, remoteSpan, err := traceutil.SpanFromPodEncodedContext(assumed, "Scheduler.BindPodToNode")
-	if err != nil {
-		trace.ApplyConfig(trace.Config{DefaultSampler: trace.NeverSample()})
-	}
+	_, remoteSpan := trace.StartSpan(ctx, "Scheduler.BindPodToNode")
 	remoteSpan.AddAttributes(trace.StringAttribute("pod", assumed.GetName()))
 
 	bindingStart := time.Now()
 	// If binding succeeded then PodScheduled condition will be updated in apiserver so that
 	// it's atomic with setting host.
-	err = sched.config.GetBinder(assumed).Bind(b)
+	err := sched.config.GetBinder(assumed).Bind(b)
 	if err := sched.config.SchedulerCache.FinishBinding(assumed); err != nil {
 		glog.Errorf("scheduler cache FinishBinding failed: %v", err)
 	}
@@ -444,9 +424,13 @@ func (sched *Scheduler) scheduleOne() {
 
 	glog.V(3).Infof("Attempting to schedule pod: %v/%v", pod.Namespace, pod.Name)
 
+	traceutil.InitializeExporter()
+	ctx, schedulePodSpan, _ := traceutil.SpanFromPodEncodedContext(pod, "Scheduler.SchedulePod")
+	defer schedulePodSpan.End()
+
 	// Synchronously attempt to find a fit for the pod.
 	start := time.Now()
-	suggestedHost, err := sched.schedule(pod)
+	suggestedHost, err := sched.schedule(ctx, pod)
 	if err != nil {
 		// schedule() may have failed because the pod would not fit on any host, so we try to
 		// preempt, with the expectation that the next time the pod is tried for scheduling it
@@ -506,7 +490,7 @@ func (sched *Scheduler) scheduleOne() {
 			}
 		}
 
-		err := sched.bind(assumedPod, &v1.Binding{
+		err := sched.bind(ctx, assumedPod, &v1.Binding{
 			ObjectMeta: metav1.ObjectMeta{Namespace: assumedPod.Namespace, Name: assumedPod.Name, UID: assumedPod.UID},
 			Target: v1.ObjectReference{
 				Kind: "Node",

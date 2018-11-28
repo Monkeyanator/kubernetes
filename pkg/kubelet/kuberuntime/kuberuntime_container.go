@@ -94,16 +94,8 @@ func (m *kubeGenericRuntimeManager) recordContainerEvent(pod *v1.Pod, container 
 // * run the post start lifecycle hooks (if applicable)
 func (m *kubeGenericRuntimeManager) startContainer(podSandboxID string, podSandboxConfig *runtimeapi.PodSandboxConfig, container *v1.Container, pod *v1.Pod, podStatus *kubecontainer.PodStatus, pullSecrets []v1.Secret, podIP string, containerType kubecontainer.ContainerType) (string, error) {
 
-	// Create an register a OpenCensus
-	// Stackdriver Trace exporter.
-	exporter, _ := traceutil.DefaultExporter()
-	trace.RegisterExporter(exporter)
-
-	ctx, remoteSpan, err := traceutil.SpanFromPodEncodedContext(pod, "Kubelet.Kuberuntime.ContainerStartProcess")
+	ctx, remoteSpan, _ := traceutil.SpanFromPodEncodedContext(pod, "Kubelet.Kuberuntime.ContainerStartProcess")
 	remoteSpan.AddAttributes(trace.StringAttribute("pod", pod.Name))
-	if err != nil {
-		trace.ApplyConfig(trace.Config{DefaultSampler: trace.NeverSample()})
-	}
 
 	ctx, imagePullSpan := trace.StartSpan(ctx, "Kubelet.Kuberuntime.PullImage")
 
@@ -164,7 +156,7 @@ func (m *kubeGenericRuntimeManager) startContainer(podSandboxID string, podSandb
 	startContainerSpan.AddAttributes(trace.StringAttribute("Container", container.Name))
 
 	// Step 3: start the container.
-	err = m.runtimeService.StartContainer(containerID, pod)
+	err = m.runtimeService.StartContainer(ctx, containerID)
 	if err != nil {
 		m.recordContainerEvent(pod, container, containerID, v1.EventTypeWarning, events.FailedToStartContainer, "Error: %v", grpc.ErrorDesc(err))
 		startContainerSpan.Annotate(nil, "Error in container start")

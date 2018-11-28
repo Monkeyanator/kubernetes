@@ -94,7 +94,7 @@ func (podStrategy) PrepareForCreate(ctx context.Context, obj runtime.Object) {
 		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 	}
 
-	span.End()
+	//span.End()
 
 	podutil.DropDisabledAlphaFields(&pod.Spec)
 }

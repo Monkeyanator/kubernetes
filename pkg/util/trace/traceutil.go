@@ -4,13 +4,17 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"log"
 
-	"contrib.go.opencensus.io/exporter/stackdriver"
 	"github.com/golang/glog"
+	"go.opencensus.io/exporter/zipkin"
 	"go.opencensus.io/trace"
 	"go.opencensus.io/trace/propagation"
 	"k8s.io/api/core/v1"
 	"k8s.io/kubernetes/pkg/apis/core"
+
+	openzipkin "github.com/openzipkin/zipkin-go"
+	zipkinHTTP "github.com/openzipkin/zipkin-go/reporter/http"
 )
 
 // SpanContextFromPodEncodedContext takes a pod to extract a SpanContext from and returns the decoded SpanContext
@@ -77,19 +81,20 @@ func InitializeExporter() error {
 	glog.Errorf("default exporter created")
 
 	// Stackdriver Trace exporter.
-	exporter, err := stackdriver.NewExporter(stackdriver.Options{})
-	if err != nil {
-		return err
-	}
-	trace.RegisterExporter(exporter)
+	// exporter, err := stackdriver.NewExporter(stackdriver.Options{})
+	// if err != nil {
+	// 	return err
+	// }
 
 	// Create the Zipkin exporter.
-	// localEndpoint, err := openzipkin.NewEndpoint("kubernetes-component", "192.168.1.5:5454")
-	// if err != nil {
-	// 	log.Fatalf("Failed to create the local zipkinEndpoint: %v", err)
-	// }
-	// reporter := zipkinHTTP.NewReporter("http://35.193.38.26:9411/api/v2/spans")
-	// ze := zipkin.NewExporter(reporter, localEndpoint)
+	localEndpoint, err := openzipkin.NewEndpoint("kubernetes-component", "192.168.1.5:5454")
+	if err != nil {
+		log.Fatalf("Failed to create the local zipkinEndpoint: %v", err)
+	}
+	reporter := zipkinHTTP.NewReporter("http://35.193.38.26:9411/api/v2/spans")
+	ze := zipkin.NewExporter(reporter, localEndpoint)
+
+	trace.RegisterExporter(ze)
 
 	return nil
 }

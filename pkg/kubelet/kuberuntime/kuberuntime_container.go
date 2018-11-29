@@ -94,9 +94,8 @@ func (m *kubeGenericRuntimeManager) recordContainerEvent(pod *v1.Pod, container 
 // * run the post start lifecycle hooks (if applicable)
 func (m *kubeGenericRuntimeManager) startContainer(podSandboxID string, podSandboxConfig *runtimeapi.PodSandboxConfig, container *v1.Container, pod *v1.Pod, podStatus *kubecontainer.PodStatus, pullSecrets []v1.Secret, podIP string, containerType kubecontainer.ContainerType) (string, error) {
 
+	traceutil.InitializeExporter(traceutil.ServiceKubelet)
 	ctx, remoteSpan, _ := traceutil.SpanFromPodEncodedContext(pod, "Kubelet.Kuberuntime.ContainerStartProcess")
-	remoteSpan.AddAttributes(trace.StringAttribute("pod", pod.Name))
-
 	ctx, imagePullSpan := trace.StartSpan(ctx, "Kubelet.Kuberuntime.PullImage")
 
 	// Step 1: pull the image.
@@ -107,6 +106,7 @@ func (m *kubeGenericRuntimeManager) startContainer(podSandboxID string, podSandb
 	}
 
 	imagePullSpan.End()
+	ctx, createContainerSpan := trace.StartSpan(ctx, "Kubelet.Kuberuntime.CreateContainer")
 
 	// Step 2: create the container.
 	ref, err := kubecontainer.GenerateContainerRef(pod, container)
@@ -119,10 +119,11 @@ func (m *kubeGenericRuntimeManager) startContainer(podSandboxID string, podSandb
 	restartCount := 0
 	containerStatus := podStatus.FindContainerStatusByName(container.Name)
 	if containerStatus != nil {
-		remoteSpan.Annotate(nil, "Pod restart")
 		restartCount = containerStatus.RestartCount + 1
+		remoteSpan.AddAttributes(trace.BoolAttribute("isRestart", true))
 	}
 
+	createContainerSpan.Annotate(nil, "Generate container config")
 	containerConfig, cleanupAction, err := m.generateContainerConfig(ctx, container, pod, restartCount, podIP, imageRef, containerType)
 	if cleanupAction != nil {
 		defer cleanupAction()
@@ -152,8 +153,9 @@ func (m *kubeGenericRuntimeManager) startContainer(podSandboxID string, podSandb
 		}, ref)
 	}
 
+	createContainerSpan.End()
 	ctx, startContainerSpan := trace.StartSpan(ctx, "Kubelet.Kuberuntime.StartContainer")
-	startContainerSpan.AddAttributes(trace.StringAttribute("Container", container.Name))
+	startContainerSpan.AddAttributes(trace.StringAttribute("container", container.Name))
 
 	// Step 3: start the container.
 	err = m.runtimeService.StartContainer(ctx, containerID)

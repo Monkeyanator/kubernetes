@@ -197,7 +197,6 @@ func (sched *Scheduler) Config() *Config {
 // schedule implements the scheduling algorithm and returns the suggested host.
 func (sched *Scheduler) schedule(ctx context.Context, pod *v1.Pod) (string, error) {
 
-	traceutil.InitializeExporter()
 	_, schedulePodAlgorithmSpan := trace.StartSpan(ctx, "Scheduler.SchedulePodAlgorithm")
 
 	defer schedulePodAlgorithmSpan.End()
@@ -424,7 +423,7 @@ func (sched *Scheduler) scheduleOne() {
 
 	glog.V(3).Infof("Attempting to schedule pod: %v/%v", pod.Namespace, pod.Name)
 
-	traceutil.InitializeExporter()
+	traceutil.InitializeExporter(traceutil.ServiceScheduler)
 	ctx, schedulePodSpan, _ := traceutil.SpanFromPodEncodedContext(pod, "Scheduler.SchedulePod")
 	defer schedulePodSpan.End()
 

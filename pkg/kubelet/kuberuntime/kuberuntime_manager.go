@@ -679,6 +679,7 @@ func (m *kubeGenericRuntimeManager) SyncPod(pod *v1.Pod, _ v1.PodStatus, podStat
 			return
 		}
 		glog.V(4).Infof("Created PodSandbox %q for pod %q", podSandboxID, format.Pod(pod))
+		sandboxSpan.Annotate([]trace.Attribute{trace.StringAttribute("podSandboxId", podSandboxID)}, "Runtime manager sandbox creation succeeded")
 
 		podSandboxStatus, err := m.runtimeService.PodSandboxStatus(podSandboxID)
 		if err != nil {

@@ -32,10 +32,10 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"go.opencensus.io/trace"
 
 	cadvisorapi "github.com/google/cadvisor/info/v1"
 	cadvisorapiv2 "github.com/google/cadvisor/info/v2"
-	"go.opencensus.io/trace"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -2048,23 +2048,22 @@ func (kl *Kubelet) HandlePodAdditions(pods []*v1.Pod) {
 			// pods that are alive.
 			activePods := kl.filterOutTerminatedPods(existingPods)
 
+			traceutil.InitializeExporter(traceutil.ServiceKubelet)
+			_, remoteSpan, _ := traceutil.SpanFromPodEncodedContext(pod, "Kubelet.PodAdmission")
+			remoteSpan.AddAttributes(trace.StringAttribute("nodeName", string(kl.nodeName)), trace.StringAttribute("pod", pod.Name))
+
 			// Check if we can admit the pod; if not, reject it.
 			if ok, reason, message := kl.canAdmitPod(activePods, pod); !ok {
 				kl.rejectPod(pod, reason, message)
 				continue
 			}
+
+			remoteSpan.End()
 		}
-
-		traceutil.InitializeExporter()
-		_, remoteSpan, _ := traceutil.SpanFromPodEncodedContext(pod, "Kubelet.AddPod")
-
-		remoteSpan.AddAttributes(trace.StringAttribute("nodeName", string(kl.nodeName)))
 
 		mirrorPod, _ := kl.podManager.GetMirrorPodByPod(pod)
 		kl.dispatchWork(pod, kubetypes.SyncPodCreate, mirrorPod, start)
 		kl.probeManager.AddPod(pod)
-
-		remoteSpan.End()
 	}
 }
 

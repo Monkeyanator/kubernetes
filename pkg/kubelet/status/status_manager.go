@@ -521,7 +521,7 @@ func (m *manager) syncPod(uid types.UID, status versionedPodStatus) {
 		spanData := &trace.SpanData{
 			SpanContext:  rootSpanContext,
 			ParentSpanID: trace.SpanID{0x0},
-			Name:         "Kubernetes.StartPod",
+			Name:         "APIServer.CreatePod",
 			StartTime:    newPod.CreationTimestamp.Time,
 			EndTime:      time.Now(),
 			Annotations:  []trace.Annotation{podStartAnnotation},
@@ -529,7 +529,7 @@ func (m *manager) syncPod(uid types.UID, status versionedPodStatus) {
 		}
 
 		// Create the Zipkin exporter.
-		localEndpoint, err := openzipkin.NewEndpoint("kubernetes-component", "192.168.1.5:5454")
+		localEndpoint, err := openzipkin.NewEndpoint(traceutil.ServiceKubelet, "192.168.1.5:5454")
 		if err != nil {
 			log.Fatalf("Failed to create the local zipkinEndpoint: %v", err)
 		}
@@ -541,6 +541,7 @@ func (m *manager) syncPod(uid types.UID, status versionedPodStatus) {
 
 	if isEnteringReconciliationPhase(*oldStatus, newPod.Status) {
 
+		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 		_, hackSpan := trace.StartSpan(context.Background(), "_hack")
 		// _, reconciliationStartSpan := trace.StartSpanWithRemoteParent(context.Background(), "StatusManager.ReconciliationPhaseEntered", hackSpan.SpanContext())
 		// reconciliationStartSpan.End()
@@ -549,10 +550,12 @@ func (m *manager) syncPod(uid types.UID, status versionedPodStatus) {
 		if err != nil {
 			glog.Errorf("failed to update TraceContext on API server with error: %v", err)
 		}
-		// m.podManager.UpdatePod(updatedPod)
+		m.podManager.UpdatePod(updatedPod)
 
 		spanContext, _ := traceutil.SpanContextFromBase64String(updatedPod.ObjectMeta.TraceContext)
 		fmt.Printf("New reconciliation phase, new TraceID: %s, new TraceContext: %s", spanContext.TraceID, updatedPod.ObjectMeta.TraceContext)
+		trace.ApplyConfig(trace.Config{DefaultSampler: trace.ProbabilitySampler(1e-4)})
+
 	} else if isExitingReconciliationPhase(*oldStatus, newPod.Status) {
 
 	}

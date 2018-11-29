@@ -77,7 +77,7 @@ func (podStrategy) PrepareForCreate(ctx context.Context, obj runtime.Object) {
 
 	// Create an register a OpenCensus
 	// Stackdriver Trace exporter.
-	err := traceutil.InitializeExporter()
+	err := traceutil.InitializeExporter(traceutil.ServiceAPIServer)
 	if err != nil {
 		glog.V(3).Infoln("default exporter could not be configured in API server")
 	}
@@ -87,14 +87,7 @@ func (podStrategy) PrepareForCreate(ctx context.Context, obj runtime.Object) {
 	ctx, hackSpan := trace.StartSpan(context.Background(), "_hack")
 	_, span := trace.StartSpanWithRemoteParent(context.Background(), "API.PrepareForCreate", hackSpan.SpanContext())
 	span.AddAttributes(trace.StringAttribute("namespace", pod.GetNamespace()))
-
-	if err := traceutil.EncodeSpanContextIntoPod(pod, hackSpan.SpanContext()); err != nil {
-		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
-	} else {
-		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
-	}
-
-	//span.End()
+	traceutil.EncodeSpanContextIntoPod(pod, hackSpan.SpanContext())
 
 	podutil.DropDisabledAlphaFields(&pod.Spec)
 }

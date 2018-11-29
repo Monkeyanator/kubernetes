@@ -33,7 +33,6 @@ import (
 	"sync"
 
 	"github.com/golang/glog"
-	"go.opencensus.io/trace"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -61,7 +60,6 @@ import (
 	kubetypes "k8s.io/kubernetes/pkg/kubelet/types"
 	"k8s.io/kubernetes/pkg/kubelet/util/format"
 	mountutil "k8s.io/kubernetes/pkg/util/mount"
-	"k8s.io/kubernetes/pkg/util/trace"
 	volumeutil "k8s.io/kubernetes/pkg/volume/util"
 	"k8s.io/kubernetes/pkg/volume/util/volumepathhandler"
 	volumevalidation "k8s.io/kubernetes/pkg/volume/validation"
@@ -836,7 +834,6 @@ func (kl *Kubelet) makePodDataDirs(pod *v1.Pod) error {
 // secrets.
 func (kl *Kubelet) getPullSecretsForPod(pod *v1.Pod) []v1.Secret {
 
-	_, remoteSpan, _ := traceutil.SpanFromPodEncodedContext(pod, "Kubelet: pull secrets")
 	pullSecrets := []v1.Secret{}
 
 	for _, secretRef := range pod.Spec.ImagePullSecrets {
@@ -847,12 +844,6 @@ func (kl *Kubelet) getPullSecretsForPod(pod *v1.Pod) []v1.Secret {
 		}
 
 		pullSecrets = append(pullSecrets, *secret)
-	}
-
-	//TODO find the best way to conditionally export spans
-	remoteSpan.AddAttributes(trace.Int64Attribute("secretsPulled", int64(len(pullSecrets))))
-	if len(pullSecrets) > 0 {
-		remoteSpan.End()
 	}
 
 	return pullSecrets

@@ -32,6 +32,7 @@ type ObjectMetaAccessor interface {
 // a default value.
 type Object interface {
 	GetTraceContext() string
+	SetTraceContext(traceContext string)
 	GetNamespace() string
 	SetNamespace(namespace string)
 	GetName() string
@@ -130,6 +131,7 @@ func (obj *ObjectMeta) GetObjectMeta() Object { return obj }
 // Namespace implements metav1.Object for any object with an ObjectMeta typed field. Allows
 // fast, direct access to metadata fields for API objects.
 func (meta *ObjectMeta) GetTraceContext() string             { return meta.TraceContext }
+func (meta *ObjectMeta) SetTraceContext(traceContext string) { meta.TraceContext = traceContext }
 func (meta *ObjectMeta) GetNamespace() string                { return meta.Namespace }
 func (meta *ObjectMeta) SetNamespace(namespace string)       { meta.Namespace = namespace }
 func (meta *ObjectMeta) GetName() string                     { return meta.Name }

@@ -216,6 +216,10 @@ func (u *Unstructured) GetTraceContext() string {
 	return getNestedString(u.Object, "metadata", "traceContext")
 }
 
+func (u *Unstructured) SetTraceContext(traceContext string) {
+	u.setNestedField(traceContext, "metadata", "traceContext")
+}
+
 func (u *Unstructured) GetNamespace() string {
 	return getNestedString(u.Object, "metadata", "namespace")
 }

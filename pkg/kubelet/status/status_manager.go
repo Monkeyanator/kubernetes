@@ -19,13 +19,11 @@ package status
 import (
 	"context"
 	"fmt"
-	"log"
 	"sort"
 	"sync"
 	"time"
 
 	"github.com/golang/glog"
-	"go.opencensus.io/exporter/zipkin"
 	"go.opencensus.io/trace"
 	"k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -42,9 +40,6 @@ import (
 	"k8s.io/kubernetes/pkg/kubelet/util/format"
 	statusutil "k8s.io/kubernetes/pkg/util/pod"
 	"k8s.io/kubernetes/pkg/util/trace"
-
-	openzipkin "github.com/openzipkin/zipkin-go"
-	zipkinHTTP "github.com/openzipkin/zipkin-go/reporter/http"
 )
 
 // A wrapper around v1.PodStatus that includes a version to enforce that stale pod statuses are
@@ -512,39 +507,13 @@ func (m *manager) syncPod(uid types.UID, status versionedPodStatus) {
 
 	//If transitioned from Pending to Running, then trace it
 	if newPod.Status.Phase == "Running" && oldStatus.Phase == "Pending" {
-
-		podStartAnnotation := trace.Annotation{
-			Time:    time.Now(),
-			Message: "Status manager transitioned pod from pending to running",
-		}
-		rootSpanContext, _ := traceutil.SpanContextFromBase64String(pod.ObjectMeta.TraceContext)
-		spanData := &trace.SpanData{
-			SpanContext:  rootSpanContext,
-			ParentSpanID: trace.SpanID{0x0},
-			Name:         "APIServer.CreatePod",
-			StartTime:    newPod.CreationTimestamp.Time,
-			EndTime:      time.Now(),
-			Annotations:  []trace.Annotation{podStartAnnotation},
-			Status:       trace.Status{Code: trace.StatusCodeOK},
-		}
-
-		// Create the Zipkin exporter.
-		localEndpoint, err := openzipkin.NewEndpoint(traceutil.ServiceKubelet, "192.168.1.5:5454")
-		if err != nil {
-			log.Fatalf("Failed to create the local zipkinEndpoint: %v", err)
-		}
-		reporter := zipkinHTTP.NewReporter("http://35.193.38.26:9411/api/v2/spans")
-		ze := zipkin.NewExporter(reporter, localEndpoint)
-		ze.ExportSpan(spanData)
-
+		traceutil.EndRootObjectTraceWithName(newPod, traceutil.ServiceAPIServer, "APIServer.CreatePod")
 	}
 
 	if isEnteringReconciliationPhase(*oldStatus, newPod.Status) {
 
 		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 		_, hackSpan := trace.StartSpan(context.Background(), "_hack")
-		// _, reconciliationStartSpan := trace.StartSpanWithRemoteParent(context.Background(), "StatusManager.ReconciliationPhaseEntered", hackSpan.SpanContext())
-		// reconciliationStartSpan.End()
 
 		updatedPod, err := statusutil.ReplacePodTraceContext(m.kubeClient, newPod.Namespace, newPod.Name, traceutil.SpanContextToBase64String(hackSpan.SpanContext()), newPod.ObjectMeta)
 		if err != nil {

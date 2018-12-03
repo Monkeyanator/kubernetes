@@ -2049,7 +2049,7 @@ func (kl *Kubelet) HandlePodAdditions(pods []*v1.Pod) {
 			activePods := kl.filterOutTerminatedPods(existingPods)
 
 			traceutil.InitializeExporter(traceutil.ServiceKubelet)
-			_, remoteSpan, _ := traceutil.SpanFromPodEncodedContext(pod, "Kubelet.PodAdmission")
+			_, remoteSpan, _ := traceutil.SpanFromEncodedContext(pod, "Kubelet.PodAdmission")
 			remoteSpan.AddAttributes(trace.StringAttribute("nodeName", string(kl.nodeName)), trace.StringAttribute("pod", pod.Name))
 
 			// Check if we can admit the pod; if not, reject it.

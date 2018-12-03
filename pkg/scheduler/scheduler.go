@@ -424,7 +424,7 @@ func (sched *Scheduler) scheduleOne() {
 	glog.V(3).Infof("Attempting to schedule pod: %v/%v", pod.Namespace, pod.Name)
 
 	traceutil.InitializeExporter(traceutil.ServiceScheduler)
-	ctx, schedulePodSpan, _ := traceutil.SpanFromPodEncodedContext(pod, "Scheduler.SchedulePod")
+	ctx, schedulePodSpan, _ := traceutil.SpanFromEncodedContext(pod, "Scheduler.SchedulePod")
 	defer schedulePodSpan.End()
 
 	// Synchronously attempt to find a fit for the pod.

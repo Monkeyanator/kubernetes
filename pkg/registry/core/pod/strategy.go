@@ -87,7 +87,7 @@ func (podStrategy) PrepareForCreate(ctx context.Context, obj runtime.Object) {
 	ctx, hackSpan := trace.StartSpan(context.Background(), "_hack")
 	_, span := trace.StartSpanWithRemoteParent(context.Background(), "API.PrepareForCreate", hackSpan.SpanContext())
 	span.AddAttributes(trace.StringAttribute("namespace", pod.GetNamespace()))
-	traceutil.EncodeSpanContextIntoPod(pod, hackSpan.SpanContext())
+	traceutil.EncodeSpanContextIntoObject(pod, hackSpan.SpanContext())
 
 	podutil.DropDisabledAlphaFields(&pod.Spec)
 }

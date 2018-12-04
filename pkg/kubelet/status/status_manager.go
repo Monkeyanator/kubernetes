@@ -38,6 +38,7 @@ import (
 	kubetypes "k8s.io/kubernetes/pkg/kubelet/types"
 	"k8s.io/kubernetes/pkg/kubelet/util/format"
 	statusutil "k8s.io/kubernetes/pkg/util/pod"
+	"k8s.io/kubernetes/pkg/util/trace"
 )
 
 // A wrapper around v1.PodStatus that includes a version to enforce that stale pod statuses are
@@ -502,6 +503,11 @@ func (m *manager) syncPod(uid types.UID, status versionedPodStatus) {
 		return
 	}
 	pod = newPod
+
+	// if pod transitioned from pending to running, trace it
+	if newPod.Status.Phase == "Running" && oldStatus.Phase == "Pending" {
+		traceutil.EndRootObjectTraceWithName(newPod, traceutil.ServiceAPIServer, "APIServer.CreatePod")
+	}
 
 	glog.V(3).Infof("Status for pod %q updated successfully: (%d, %+v)", format.Pod(pod), status.version, status.status)
 	m.apiStatusVersions[kubetypes.MirrorPodUID(pod.UID)] = status.version

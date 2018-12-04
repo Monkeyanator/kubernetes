@@ -33,6 +33,8 @@ import (
 
 	"github.com/golang/glog"
 
+	"k8s.io/kubernetes/pkg/util/trace"
+
 	cadvisorapi "github.com/google/cadvisor/info/v1"
 	cadvisorapiv2 "github.com/google/cadvisor/info/v2"
 	"k8s.io/api/core/v1"
@@ -2046,11 +2048,16 @@ func (kl *Kubelet) HandlePodAdditions(pods []*v1.Pod) {
 			// pods that are alive.
 			activePods := kl.filterOutTerminatedPods(existingPods)
 
+			traceutil.InitializeExporter(traceutil.ServiceKubelet)
+			_, podAdmissionSpan, _ := traceutil.SpanFromEncodedContext(pod, "Kubelet.PodAdmission")
+
 			// Check if we can admit the pod; if not, reject it.
 			if ok, reason, message := kl.canAdmitPod(activePods, pod); !ok {
 				kl.rejectPod(pod, reason, message)
 				continue
 			}
+
+			podAdmissionSpan.End()
 		}
 		mirrorPod, _ := kl.podManager.GetMirrorPodByPod(pod)
 		kl.dispatchWork(pod, kubetypes.SyncPodCreate, mirrorPod, start)

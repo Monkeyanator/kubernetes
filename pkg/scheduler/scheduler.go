@@ -40,7 +40,6 @@ import (
 	"k8s.io/kubernetes/pkg/scheduler/volumebinder"
 
 	"github.com/golang/glog"
-	"go.opencensus.io/trace"
 	"k8s.io/kubernetes/pkg/util/trace"
 )
 
@@ -196,9 +195,6 @@ func (sched *Scheduler) Config() *Config {
 
 // schedule implements the scheduling algorithm and returns the suggested host.
 func (sched *Scheduler) schedule(ctx context.Context, pod *v1.Pod) (string, error) {
-
-	_, schedulePodAlgorithmSpan := trace.StartSpan(ctx, "Scheduler.SchedulePodAlgorithm")
-	defer schedulePodAlgorithmSpan.End()
 
 	host, err := sched.config.Algorithm.Schedule(pod, sched.config.NodeLister)
 	if err != nil {
@@ -372,11 +368,6 @@ func (sched *Scheduler) assume(assumed *v1.Pod, host string) error {
 // bind binds a pod to a given node defined in a binding object.  We expect this to run asynchronously, so we
 // handle binding metrics internally.
 func (sched *Scheduler) bind(ctx context.Context, assumed *v1.Pod, b *v1.Binding) error {
-
-	_, bindPodSpan := trace.StartSpan(ctx, "Scheduler.BindPodToNode")
-	bindPodSpan.AddAttributes(trace.StringAttribute("pod", assumed.GetName()))
-
-	defer bindPodSpan.End()
 
 	bindingStart := time.Now()
 	// If binding succeeded then PodScheduled condition will be updated in apiserver so that

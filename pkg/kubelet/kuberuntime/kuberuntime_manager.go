@@ -584,6 +584,9 @@ func (m *kubeGenericRuntimeManager) computePodActions(pod *v1.Pod, podStatus *ku
 //  5. Create init containers.
 //  6. Create normal containers.
 func (m *kubeGenericRuntimeManager) SyncPod(pod *v1.Pod, _ v1.PodStatus, podStatus *kubecontainer.PodStatus, pullSecrets []v1.Secret, backOff *flowcontrol.Backoff) (result kubecontainer.PodSyncResult) {
+
+	traceutil.InitializeExporter(traceutil.ServiceKubelet)
+
 	// Step 1: Compute sandbox and container changes.
 	podContainerChanges := m.computePodActions(pod, podStatus)
 	glog.V(3).Infof("computePodActions got %+v for pod %q", podContainerChanges, format.Pod(pod))
@@ -655,7 +658,7 @@ func (m *kubeGenericRuntimeManager) SyncPod(pod *v1.Pod, _ v1.PodStatus, podStat
 	// Step 4: Create a sandbox for the pod if necessary.
 	podSandboxID := podContainerChanges.SandboxID
 	if podContainerChanges.CreateSandbox {
-		_, createSandboxSpan := trace.StartSpanWithRemoteParent(context.Background(), "Kubelet.CreatePodSandbox", ctx)
+		_, createSandboxSpan := trace.StartSpanWithRemoteParent(context.Background(), "kubelet.CreatePodSandbox", ctx)
 
 		var msg string
 		var err error

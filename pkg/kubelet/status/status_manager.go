@@ -506,7 +506,7 @@ func (m *manager) syncPod(uid types.UID, status versionedPodStatus) {
 
 	// if pod transitioned from pending to running, trace it
 	if newPod.Status.Phase == "Running" && oldStatus.Phase == "Pending" {
-		traceutil.EndRootObjectTraceWithName(newPod, traceutil.ServiceAPIServer, "APIServer.CreatePod")
+		traceutil.EndRootObjectTraceWithName(newPod, traceutil.ServiceAPIServer, "kube-apiserver.CreatePod")
 	}
 
 	glog.V(3).Infof("Status for pod %q updated successfully: (%d, %+v)", format.Pod(pod), status.version, status.status)

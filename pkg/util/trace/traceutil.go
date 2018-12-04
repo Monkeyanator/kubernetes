@@ -33,11 +33,9 @@ const (
 
 // services a given span could export from
 const (
-	ServiceAPIServer         = "api-server"
-	ServiceScheduler         = "scheduler"
-	ServiceKubelet           = "kubelet"
-	ServiceContainerdRuntime = "containerd-runtime"
-	ServiceCRI               = "containerd-cri"
+	ServiceAPIServer = "kube-apiserver"
+	ServiceScheduler = "kube-scheduler"
+	ServiceKubelet   = "kubelet"
 )
 
 // ServiceType represents a logical service within Kubernetes
@@ -118,7 +116,11 @@ func EncodeSpanContextIntoObject(tracedResource meta.Object, spanContext trace.S
 // and exports the corresponding root span into the specified tracing backend
 func EndRootObjectTraceWithName(tracedResource meta.Object, service ServiceType, spanName string) {
 
-	rootSpanContext, _ := SpanContextFromEncodedContext(tracedResource)
+	rootSpanContext, err := SpanContextFromEncodedContext(tracedResource)
+	if err != nil {
+		return
+	}
+
 	spanData := &trace.SpanData{
 		SpanContext:  rootSpanContext,
 		ParentSpanID: trace.SpanID{0x0},

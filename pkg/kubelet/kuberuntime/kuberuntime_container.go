@@ -95,8 +95,8 @@ func (m *kubeGenericRuntimeManager) recordContainerEvent(pod *v1.Pod, container 
 func (m *kubeGenericRuntimeManager) startContainer(podSandboxID string, podSandboxConfig *runtimeapi.PodSandboxConfig, container *v1.Container, pod *v1.Pod, podStatus *kubecontainer.PodStatus, pullSecrets []v1.Secret, podIP string, containerType kubecontainer.ContainerType) (string, error) {
 
 	traceutil.InitializeExporter(traceutil.ServiceKubelet)
-	ctx, containerStartProcessSpan, _ := traceutil.SpanFromEncodedContext(pod, "Kubelet.Kuberuntime.ContainerStartProcess")
-	ctx, imagePullSpan := trace.StartSpan(ctx, "Kubelet.Kuberuntime.PullImage")
+	ctx, containerStartProcessSpan, _ := traceutil.SpanFromEncodedContext(pod, "kubelet.ContainerStartProcess")
+	ctx, imagePullSpan := trace.StartSpan(ctx, "kubelet.PullImage")
 
 	// Step 1: pull the image.
 	imageRef, msg, err := m.imagePuller.EnsureImageExists(pod, container, pullSecrets)
@@ -106,7 +106,7 @@ func (m *kubeGenericRuntimeManager) startContainer(podSandboxID string, podSandb
 	}
 
 	imagePullSpan.End()
-	ctx, createContainerSpan := trace.StartSpan(ctx, "Kubelet.Kuberuntime.CreateContainer")
+	ctx, createContainerSpan := trace.StartSpan(ctx, "kubelet.CreateContainer")
 
 	// Step 2: create the container.
 	ref, err := kubecontainer.GenerateContainerRef(pod, container)
@@ -151,7 +151,7 @@ func (m *kubeGenericRuntimeManager) startContainer(podSandboxID string, podSandb
 	}
 
 	createContainerSpan.End()
-	ctx, startContainerSpan := trace.StartSpan(ctx, "Kubelet.Kuberuntime.StartContainer")
+	ctx, startContainerSpan := trace.StartSpan(ctx, "kubelet.StartContainer")
 	startContainerSpan.AddAttributes(trace.StringAttribute("container", container.Name))
 
 	// Step 3: start the container.

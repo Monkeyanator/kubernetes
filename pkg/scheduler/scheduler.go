@@ -17,6 +17,7 @@ limitations under the License.
 package scheduler
 
 import (
+	"context"
 	"time"
 
 	"k8s.io/api/core/v1"
@@ -39,6 +40,8 @@ import (
 	"k8s.io/kubernetes/pkg/scheduler/volumebinder"
 
 	"github.com/golang/glog"
+	"go.opencensus.io/trace"
+	"k8s.io/kubernetes/pkg/util/trace"
 )
 
 // Binder knows how to write a binding.
@@ -192,7 +195,11 @@ func (sched *Scheduler) Config() *Config {
 }
 
 // schedule implements the scheduling algorithm and returns the suggested host.
-func (sched *Scheduler) schedule(pod *v1.Pod) (string, error) {
+func (sched *Scheduler) schedule(ctx context.Context, pod *v1.Pod) (string, error) {
+
+	_, schedulePodAlgorithmSpan := trace.StartSpan(ctx, "Scheduler.SchedulePodAlgorithm")
+	defer schedulePodAlgorithmSpan.End()
+
 	host, err := sched.config.Algorithm.Schedule(pod, sched.config.NodeLister)
 	if err != nil {
 		pod = pod.DeepCopy()
@@ -364,7 +371,13 @@ func (sched *Scheduler) assume(assumed *v1.Pod, host string) error {
 
 // bind binds a pod to a given node defined in a binding object.  We expect this to run asynchronously, so we
 // handle binding metrics internally.
-func (sched *Scheduler) bind(assumed *v1.Pod, b *v1.Binding) error {
+func (sched *Scheduler) bind(ctx context.Context, assumed *v1.Pod, b *v1.Binding) error {
+
+	_, bindPodSpan := trace.StartSpan(ctx, "Scheduler.BindPodToNode")
+	bindPodSpan.AddAttributes(trace.StringAttribute("pod", assumed.GetName()))
+
+	defer bindPodSpan.End()
+
 	bindingStart := time.Now()
 	// If binding succeeded then PodScheduled condition will be updated in apiserver so that
 	// it's atomic with setting host.
@@ -408,9 +421,13 @@ func (sched *Scheduler) scheduleOne() {
 
 	glog.V(3).Infof("Attempting to schedule pod: %v/%v", pod.Namespace, pod.Name)
 
+	traceutil.InitializeExporter(traceutil.ServiceScheduler)
+	ctx, schedulePodSpan, _ := traceutil.SpanFromEncodedContext(pod, "Scheduler.SchedulePod")
+	defer schedulePodSpan.End()
+
 	// Synchronously attempt to find a fit for the pod.
 	start := time.Now()
-	suggestedHost, err := sched.schedule(pod)
+	suggestedHost, err := sched.schedule(ctx, pod)
 	if err != nil {
 		// schedule() may have failed because the pod would not fit on any host, so we try to
 		// preempt, with the expectation that the next time the pod is tried for scheduling it
@@ -470,7 +487,7 @@ func (sched *Scheduler) scheduleOne() {
 			}
 		}
 
-		err := sched.bind(assumedPod, &v1.Binding{
+		err := sched.bind(ctx, assumedPod, &v1.Binding{
 			ObjectMeta: metav1.ObjectMeta{Namespace: assumedPod.Namespace, Name: assumedPod.Name, UID: assumedPod.UID},
 			Target: v1.ObjectReference{
 				Kind: "Node",

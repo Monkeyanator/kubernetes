@@ -67,6 +67,7 @@ filegroup(
         "//build:all-srcs",
         "//cluster:all-srcs",
         "//cmd:all-srcs",
+        "//demonstrationTestDir/test_container_sleepcrash:all-srcs",
         "//docs:all-srcs",
         "//hack:all-srcs",
         "//pkg:all-srcs",
